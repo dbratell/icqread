@@ -27,7 +27,7 @@ void people_init(int size)
 }
 
 
-
+/* Frees all memory allocated in the people database */
 void people_release()
 {
 	int i;
