@@ -34,20 +34,18 @@ char *typelabel[] = {
 		"Contact list"
 };
 
+struct people *get_people(int uin);
+
+
+
 void printheader(int type, struct startfields *sf)
 {
 	struct people *p;
 	char *name;
 	struct tm *t;
 
-	p = people_lookup(sf->uin);
-	if(p == NULL) {
-		name = UNKNOWN;
-		/* Insert in database as an empty uin */
-		people_add(sf->uin, UNKNOWN, UNKNOWN, UNKNOWN);
-	} else {
-		name = p->name;
-	}
+	p = get_people(sf->uin);
+	name = p->name;
 
 	if(sf->destination == 1) {
 		if(LOGLEVEL>3) printf("%s sent to %s\n", 
@@ -84,6 +82,28 @@ void printheader(int type, struct startfields *sf)
 	if(LOGLEVEL>8) printf("protocol: %x\n", sf->protocolversion);
 	if(LOGLEVEL>8) printf("junk1: %x\n", sf->junk1);
 
+}
+
+
+/* Looks up the uin and returns the person 
+ * associated with it. If there's no one yet a
+ * dummy person will be created. In no way will
+ * a NULL be returned.
+ */
+struct people *get_people(int uin)
+{
+	struct people *p;
+
+	p = people_lookup(uin);
+
+	if(p == NULL) {
+		/* Insert in database as an empty uin */
+		people_add(uin, UNKNOWN, UNKNOWN, UNKNOWN);
+		p = people_lookup(uin);
+		if(p == NULL) assert(0);
+	} 
+
+	return p;
 }
 
 
@@ -188,7 +208,7 @@ void readstring(FILE *datafil, int version, struct textdata *td)
 }
 
 
-void readstart(FILE *datafil, int version, struct startfields *sf)
+void readrecordstart(FILE *datafil, int version, struct startfields *sf)
 {
 	fread(&(sf->uin), 4, 1, datafil);
 	count +=4;
@@ -237,7 +257,7 @@ void readstart(FILE *datafil, int version, struct startfields *sf)
 	}
 }
 
-void readend(FILE *datafil, int version, struct endfields *se)
+void readrecordend(FILE *datafil, int version, struct endfields *se)
 {
 	fread(&(se->junk1), 4, 1, datafil);
 	count +=4;
@@ -252,9 +272,9 @@ void handle_x01(FILE *datafil, int version)
 	struct startfields sf;
 	struct endfields se;
 
-	readstart(datafil, version, &sf);
+	readrecordstart(datafil, version, &sf);
 
-	readend(datafil, version, &se);
+	readrecordend(datafil, version, &se);
 
 	printheader(TYPE_X01, &sf);
 
@@ -280,12 +300,12 @@ void handle_x02(FILE *datafil, int version)
 
 	struct textdata people;
 
-	readstart(datafil, version, &sf);
+	readrecordstart(datafil, version, &sf);
 
 
 	readstring(datafil, version, &people);
 
-	readend(datafil, version, &se);
+	readrecordend(datafil, version, &se);
 
 	printheader(TYPE_X02, &sf);
 
@@ -315,14 +335,14 @@ void handle_x03(FILE *datafil, int version)
 
 	__int32 filelength;
 
-	readstart(datafil, version, &sf);
+	readrecordstart(datafil, version, &sf);
 	readstring(datafil, version, &filename);
 
 	fread(&filelength, 4, 1, datafil);
 	count +=4;
 
 	readstring(datafil, version, &junkstring);
-	readend(datafil, version, &se);
+	readrecordend(datafil, version, &se);
 
 	printheader(TYPE_X03, &sf);
 
@@ -353,8 +373,8 @@ void handle_x04(FILE *datafil, int version)
 	struct endfields se;
 	
 
-	readstart(datafil, version, &sf);
-	readend(datafil, version, &se);
+	readrecordstart(datafil, version, &sf);
+	readrecordend(datafil, version, &se);
 
 	printheader(TYPE_X04, &sf);
 	if(LOGLEVEL>3) printf("\n");
@@ -374,8 +394,8 @@ void handle_x06(FILE *datafil, int version)
 	struct startfields sf;
 	struct endfields se;
 	
-	readstart(datafil, version, &sf);
-	readend(datafil, version, &se);
+	readrecordstart(datafil, version, &sf);
+	readrecordend(datafil, version, &se);
 
 	printheader(TYPE_X06, &sf);
 	if(LOGLEVEL>3) printf("\n");
@@ -393,8 +413,8 @@ void handle_x08(FILE *datafil, int version)
 	struct startfields sf;
 	struct endfields se;
 	
-	readstart(datafil, version, &sf);
-	readend(datafil, version, &se);
+	readrecordstart(datafil, version, &sf);
+	readrecordend(datafil, version, &se);
 
 	printheader(TYPE_X08, &sf);
 	if(LOGLEVEL>3) printf("\n");
@@ -411,8 +431,8 @@ void handle_x09(FILE *datafil, int version)
 	struct startfields sf;
 	struct endfields se;
 	
-	readstart(datafil, version, &sf);
-	readend(datafil, version, &se);
+	readrecordstart(datafil, version, &sf);
+	readrecordend(datafil, version, &se);
 
 	printheader(TYPE_X09, &sf);
 	if(LOGLEVEL>3) printf("\n");
@@ -436,7 +456,7 @@ void handle_x0A(FILE *datafil, int version)
 	__int16 junk6;
 
 
-	readstart(datafil, version, &sf);
+	readrecordstart(datafil, version, &sf);
 	readstring(datafil, version, &programname);
 	fread(&junk4, 4, 1, datafil);
 	count +=4;
@@ -444,7 +464,7 @@ void handle_x0A(FILE *datafil, int version)
 	count +=4;
 	fread(&junk6, 2, 1, datafil);
 	count +=2;
-	readend(datafil, version, &se);
+	readrecordend(datafil, version, &se);
 
 	printheader(TYPE_X0A, &sf);
 	if(LOGLEVEL>5) printf("Program:\nString: '%s'\n", 
@@ -478,8 +498,8 @@ void handle_x0B(FILE *datafil, int version)
 
 	struct people *p;
 
-	readstart(datafil, version, &sf);
-	readend(datafil, version, &se);
+	readrecordstart(datafil, version, &sf);
+	readrecordend(datafil, version, &se);
 
 	nick = string2nick(sf.string);
 	name = string2name(sf.string);
@@ -514,8 +534,8 @@ void handle_x0C(FILE *datafil, int version)
 
 	struct people *p;
 
-	readstart(datafil, version, &sf);
-	readend(datafil, version, &se);
+	readrecordstart(datafil, version, &sf);
+	readrecordend(datafil, version, &se);
 
 	nick = string2nick(sf.string);
 	name = string2name(sf.string);
@@ -546,8 +566,8 @@ void handle_x0F(FILE *datafil, int version)
 	struct endfields se;
 	
 
-	readstart(datafil, version, &sf);
-	readend(datafil, version, &se);
+	readrecordstart(datafil, version, &sf);
+	readrecordend(datafil, version, &se);
 
 	printheader(TYPE_X0F, &sf);
 	if(LOGLEVEL>3) printf("\n");
@@ -573,8 +593,8 @@ void handle_x13(FILE *datafil, int version)
 	int nr_of_contacts;
 	int uin;
 
-	readstart(datafil, version, &sf);
-	readend(datafil, version, &se);
+	readrecordstart(datafil, version, &sf);
+	readrecordend(datafil, version, &se);
 
 	printheader(TYPE_X13, &sf);
 	if(LOGLEVEL>3) printf("\n");
@@ -600,16 +620,11 @@ void handle_x13(FILE *datafil, int version)
 		strpek[i]='\0';
 
 		/* Add to database */
-		p = people_lookup(uin);
-		if(!p) {
-			/* Not in database yet */
+		p = get_people(uin);
+		/* See if we have a name yet */
+		if(strcmp(p->nick, UNKNOWN) == 0) {
+			/* No name yet. Let's add one */
 			people_add(uin, strpek, UNKNOWN, UNKNOWN);
-		} else {
-			/* See if we have a name yet */
-			if(strcmp(p->nick, UNKNOWN) == 0) {
-				/* No name */
-				people_add(uin, strpek, UNKNOWN, UNKNOWN);
-			}
 		}
 		strpek = &(strpek[i+1]);
 	}
