@@ -63,7 +63,7 @@ void people_free(struct people *p)
 	}
 }
 
-void people_add(int uin, char *nick, char *name, char *email)
+void people_add(int uin, unsigned char *nick, unsigned char *name, unsigned char *email)
 {
 	int hash, count=0;
 
@@ -151,7 +151,8 @@ void people_print_info()
 
 	int timespan = 0;
 
-	int total_sent = 0, total_received = 0;
+	int total_sent_mess = 0, total_received_mess = 0;
+	int total_sent_words = 0, total_received_words = 0;
 	int i=0;
 	for(i=0; i<people_db_size; i++) {
 		if(people_db[i] != NULL) {
@@ -193,12 +194,19 @@ void people_print_info()
 				printf("Sent messages: %d\nReceived messages: %d\n",
 					p->number_of_messages_to, p->number_of_messages_from);
 			}
+
+			printf("Sent words: %d\nReceived words: %d\n",
+				p->number_of_words_to, p->number_of_words_from);
+			
 			printf("\n");
-			total_sent += p->number_of_messages_to;
-			total_received += p->number_of_messages_from;
+			total_sent_mess += p->number_of_messages_to;
+			total_received_mess += p->number_of_messages_from;
+			total_sent_words+= p->number_of_words_to;
+			total_received_words += p->number_of_words_from;
 		}
 	}
 
-	printf("\nTotal sent: %d\nTotal received: %d\n", 
-		total_sent, total_received);
+	printf("\nTotal sent: %d (%d words)\nTotal received: %d (%dwords)\n", 
+		total_sent_mess, total_sent_words,
+		total_received_mess, total_received_words);
 }

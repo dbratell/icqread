@@ -1,8 +1,8 @@
 struct people {
 	int uin;
-	char *nick;
-	char *name;
-	char *email;
+	unsigned char *nick;
+	unsigned char *name;
+	unsigned char *email;
 	int startdate;
 	int enddate;
 	int number_of_messages_to;
@@ -14,5 +14,5 @@ struct people {
 void people_init(int size);
 void people_release();
 struct people *people_lookup(int uin);
-void people_add(int uin, char *nick, char *name, char *email);
+void people_add(int uin, unsigned char *nick, unsigned char *name, unsigned char *email);
 void people_print_info();

@@ -3,6 +3,44 @@
 
 #define UNKNOWN "<unknown>"
 
+unsigned char *month_string[] = {
+		"January  ",
+		"February ",
+		"Mars     ",
+		"April    ",
+		"May      ",
+		"June     ",
+		"July     ",
+		"August   ",
+		"September",
+		"October  ",
+		"November ",
+		"December "
+};
+
+unsigned char *typelabel[] = {
+		"X0: Not used(?)",
+		"Message",
+		"Chat request",
+		"File",
+		"URL",
+		"X05: Not used(?)",
+		"'Asked for authorization'",
+		"X07: Not used(?)",
+		"Receipt (?)",
+		"System Message",
+		"External Program",
+		"'User asked to be added'",
+		"'You were added'",
+		"X0D: Not used(?)",
+		"X0E: Not used(?)",
+		"Mail",
+		"X10: Not used(?)",
+		"X11: Not used(?)",
+		"X12: Not used(?)",
+		"Contact list"
+};
+
 
 #define INTRO_V72 0x0072
 #define INTRO_V73 0x0073
@@ -181,7 +219,7 @@ struct startfields {
 	__int16 type;
 	__int32 uin;
 	__int16 length;
-	char *string;
+	unsigned char *string;
 	__int32 status;
 	__int32 destination;
 	__int16 protocolversion;
@@ -211,5 +249,5 @@ struct endfields {
 
 struct textdata {
 	__int16 length;
-	char *string;
+	unsigned char *string;
 };

@@ -1,5 +1,5 @@
 /*
- * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.12 1998/04/28 19:21:11 bratell Exp $
+ * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.13 1998/05/01 21:10:42 bratell Exp $
  * 
  */
 
@@ -8,9 +8,12 @@
 #include <string.h>
 #include <time.h>
 #include <assert.h>
-
+#ifdef WIN32
+#include <windows.h>
+#endif
 #include "ICQread.h"
 #include "people.h"
+#include "string_utils.h"
 
 #define NR_OF_YEARS 300 /* From 1900 to 2200, should be enough */
 int count = 0;
@@ -18,45 +21,105 @@ int date_distribution[NR_OF_YEARS][12];
 
 int LOGLEVEL = 6;
 
-char *month_string[] = {
-		"January  ",
-		"February ",
-		"Mars     ",
-		"April    ",
-		"May      ",
-		"June     ",
-		"July     ",
-		"August   ",
-		"September",
-		"October  ",
-		"November ",
-		"December "
-};
-
-char *typelabel[] = {
-		"X0: Not used(?)",
-		"Message",
-		"Chat request",
-		"File",
-		"URL",
-		"X05: Not used(?)",
-		"'Asked for authorization'",
-		"X07: Not used(?)",
-		"Receipt (?)",
-		"System Message",
-		"External Program",
-		"'User asked to be added'",
-		"'You were added'",
-		"X0D: Not used(?)",
-		"X0E: Not used(?)",
-		"Mail",
-		"X10: Not used(?)",
-		"X11: Not used(?)",
-		"X12: Not used(?)",
-		"Contact list"
-};
 
 struct people *get_people(int uin);
+
+#ifdef WIN32
+void print_win32_error(unsigned char *details)
+{
+	char *error_string;
+	int res;
+
+	res = FormatMessage(
+		FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_ALLOCATE_BUFFER,
+		NULL,
+		GetLastError(),
+		0,
+		(unsigned char *)&error_string,
+		0,
+		NULL);
+
+	if(res == 0) {
+		/* error */
+		return;
+	}
+
+	printf("%s:\n%s\n",details,error_string);
+
+	/* Free the buffer. */
+	LocalFree(error_string);
+}
+#endif
+		
+		
+/* make_and_not_remove = TRUE (1) to create tempfile.
+ *						= FALSE (0) to remove it.
+ */
+unsigned char *make_temp_copy(unsigned char *org_filename, int make_and_not_remove)
+{
+	unsigned char tempdir[1024];
+	static unsigned char tempfilename[1024];
+	static int created = FALSE;
+	
+#ifdef WIN32
+	DWORD res;
+	if(make_and_not_remove == FALSE) {
+		if(created) {
+			res = DeleteFile(tempfilename);
+			created = FALSE;
+			if(res == 0) {
+				/* Failed */
+				return NULL;
+			} else {
+				return tempfilename;
+			}
+		} else {
+			printf("Not removed since it wasn't created\n");
+			return NULL;
+		}
+	}
+
+	/* User wants to make temporary file */
+	if(created) {
+		/* Already created */
+		printf("There is already a temporary file created\n");
+		return NULL;
+	}
+
+	res = GetTempPath(1024, tempdir);
+	if((res>1024) || (res == 0)) {
+		/* Failed */
+		print_win32_error("Tried to find temporary directory");
+		return NULL;
+	}
+	
+	res = GetTempFileName(tempdir, "icqread", 0, tempfilename);
+
+	if(res == 0) {
+		/* Failed */
+		print_win32_error("Tried to create temporary file");
+		return NULL;
+	}
+	
+	res = CopyFile(org_filename, tempfilename, FALSE);
+
+	if(res == 0) {
+		/* Failed */
+		DeleteFile(tempfilename);
+		print_win32_error("When accessing historyfile to make safety copy of it");
+		return NULL;
+	}
+
+	created = TRUE;
+	return tempfilename;
+ 
+
+#else
+	fprintf(stderr, 
+		"Copy to tempfile not implemented yet\n");
+	return NULL;
+#endif
+}
 
 void printdate_distribution()
 {
@@ -193,10 +256,13 @@ void printstatus(int type, int status)
 	}
 }
 
+/* Print some basic information and make some statistics
+ * collection.
+ */
 void printheader(int type, struct startfields *sf)
 {
 	struct people *p;
-	char *name;
+	unsigned char *name;
 	struct tm *t;
 
 	p = get_people(sf->uin);
@@ -229,7 +295,11 @@ void printheader(int type, struct startfields *sf)
 	t = localtime(&sf->date);
 
 	if(t != NULL) {
-		date_distribution[t->tm_year][t->tm_mon]++;
+		if(t->tm_year<NR_OF_YEARS) {
+			date_distribution[t->tm_year][t->tm_mon]++;
+		} else {
+			/* Too far into the future. Probably an error! */
+		}
 	}
 
 	if(t != NULL) {
@@ -263,90 +333,6 @@ struct people *get_people(int uin)
 	} 
 
 	return p;
-}
-
-
-char *string2nick(unsigned char *str)
-{
-	int i=0;
-	char *result;
-
-	while(str[i] != 0xFE) {
-		i++;
-	}
-
-	result = malloc(i+1);
-	assert(result);
-
-	strncpy(result, str, i);
-	result[i]='\0';
-
-	return result;
-}
-
-char *string2name(unsigned char *str)
-{
-	int start;
-	int i=0, j=0;
-	char *result;
-
-	while(str[i] != 0xFE) {
-		i++;
-	}
-	start = i+1;
-	i=0;
-	while(str[start+i] != 0xFE) {
-		i++;
-	}
-	j=i;
-	i++;
-	while(str[start+i] != 0xFE) {
-		i++;
-	}
-
-	result = malloc(i+1);
-	assert(result);
-
-	strncpy(result, &str[start], i);
-	result[i]='\0';
-	result[j]=' ';
-
-	return result;
-}
-
-
-char *string2email(unsigned char *str)
-{
-	int start;
-	int i=0;
-	unsigned char *result;
-
-	while(str[i] != 0xFE) {
-		i++;
-	}
-	start = i+1;
-	i=0;
-	while(str[start+i] != 0xFE) {
-		i++;
-	}
-	start = start + i + 1;
-	i=0;
-	while(str[start+i] != 0xFE) {
-		i++;
-	}
-	start = start + i + 1;
-	i=0;
-	while(str[start+i] != 0xFE) {
-		i++;
-	}
-
-	result = malloc(i+1);
-	assert(result);
-
-	strncpy(result, &str[start], i);
-	result[i]='\0';
-
-	return result;
 }
 
 
@@ -438,14 +424,22 @@ void readrecordend(FILE *datafil, int version, struct endfields *se)
  */
 void handle_mess(FILE *datafil, int version, struct startfields *sf)
 {
+	struct people *p;
 	struct endfields se;
 
 	readrecordend(datafil, version, &se);
 
 	printheader(TYPE_MESS, sf);
 	if(LOGLEVEL>5) printf("Text: '%s'\n", sf->string);
-	if(LOGLEVEL>3) printf("\n");
 
+	p = get_people(sf->uin);
+	if(sf->destination == 1) {
+		p->number_of_words_to += wordcount(sf->string);
+	} else if(sf->destination == 0) {
+		p->number_of_words_from += wordcount(sf->string);
+	}
+
+	if(LOGLEVEL>3) printf("\n");
 
 	return;
 }
@@ -649,9 +643,9 @@ void handle_x0B(FILE *datafil, int version, struct startfields *sf)
 {
 	struct endfields se;
 
-	char *nick;
-	char *name;
-	char *email;
+	unsigned char *nick;
+	unsigned char *name;
+	unsigned char *email;
 
 	struct people *p;
 
@@ -684,9 +678,9 @@ void handle_x0C(FILE *datafil, int version, struct startfields *sf)
 {
 	struct endfields se;
 
-	char *nick;
-	char *name;
-	char *email;
+	unsigned char *nick;
+	unsigned char *name;
+	unsigned char *email;
 
 	struct people *p;
 
@@ -740,7 +734,7 @@ void handle_contactlist(FILE *datafil, int version, struct startfields *sf)
 
 	struct people *p;
 
-	char *strpek;
+	unsigned char *strpek;
 	int i, j;
 	int nr_of_contacts;
 	int uin;
@@ -784,7 +778,7 @@ void handle_contactlist(FILE *datafil, int version, struct startfields *sf)
 
 void readfile(FILE *datafil) 
 {
-	char buf[4];
+	unsigned char buf[4];
 	__int32 *data32;
 	__int16 *data16;
 
@@ -919,15 +913,23 @@ int main(int argc, char *argv[])
 
 	FILE *datafil;
 
+	unsigned char *tempfilename;
+
 	if(argc<2 || argc >3) {
 		usage();
 		exit(1);
 	}
 
+	tempfilename = make_temp_copy(argv[1], TRUE);
+	if(!tempfilename) {
+		exit(1);
+	}
+
 	/* Open datafile in readonly binary mode. */
-	datafil = fopen(argv[1], "rb");
+	datafil = fopen(tempfilename, "rb");
 	if(datafil==NULL) {
-		perror("Datafil");
+		perror(tempfilename);
+		make_temp_copy(tempfilename, FALSE);
 		exit(1);
 	}
 
@@ -955,6 +957,10 @@ int main(int argc, char *argv[])
 
 	people_add(1, "System", "ICQ Server", "N/A");
 	readfile(datafil);
+	
+	fclose(datafil);
+	make_temp_copy(tempfilename, FALSE);
+
 	people_print_info();
 	people_release();
 
