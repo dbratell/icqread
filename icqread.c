@@ -1,5 +1,5 @@
 /*
- * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.17 1998/05/03 19:47:04 Bratell Exp $
+ * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.18 1998/05/06 16:23:32 bratell Exp $
  * 
  */
 
@@ -961,10 +961,15 @@ void readfile(FILE *datafil)
 /* Print program usage */
 void usage()
 {
-	printf("Usage: icqread <filename> [LOGLEVEL (1-10)]\n");
+	printf("Usage: icqread <filename> [LOGLEVEL (1-10) [Sort_stats_by]]\n");
 	printf("\nWhere:\n");
 	printf("<filename> \tis the name of the historyfile to analyze. Normally it's you\n\t\tuin with msg.dat at the end. I recommend you working\n\t\ton a copy of the file since I haven't analyzed ICQ behaviour\n\t\twhen someone else is reading the file.\n");
 	printf("LOGLEVEL   \tcontrols how much information is shown. 1 gives only summary\n\t\tstatistics and 10 gives all info collected. You may try it\n\t\tout yourself.\n");
+	printf("Sorts_stats_by\tControls by what the statistics should be sorted.\n");
+	printf("\t\t\t1 = Number of sent messages\n");
+	printf("\t\t\t2 = Number of received messages\n");
+	printf("\t\t\t4 = Number of sent words\n");
+	printf("\t\t\t3 = Number of received words\n");
 	printf("\n");
 	printf("This version compiled %s %s\n\n", __DATE__, __TIME__);
 }
@@ -972,10 +977,11 @@ void usage()
 int main(int argc, char *argv[])
 {
 	int loglevel;
+	int sort_criteria;
 
 	FILE *datafil;
 
-	if(argc<2 || argc >3) {
+	if(argc<2 || argc >4) {
 		usage();
 		exit(1);
 	}
@@ -996,11 +1002,38 @@ int main(int argc, char *argv[])
 
 	/* printf("Öppnade datafil\n"); */
 
-	if(argc==3) {
+	if(argc>=3) {
 		loglevel=atoi(argv[2]);
 		if((loglevel > 0) && (loglevel <= 10)) {
 			LOGLEVEL = loglevel;
 		}
+	}
+
+	if(argc==4) {
+		sort_criteria=atoi(argv[3]);
+		if((sort_criteria<1) || (sort_criteria>4)) {
+			/* Illegal sort criteria */
+			fprintf(stderr, "Illegal sort criteria '%s'\n", argv[3]);
+			sort_criteria = MESSAGES_FROM;
+		} else {
+			switch(sort_criteria) {
+			case 1: 
+				sort_criteria = MESSAGES_TO;
+				break;
+			case 2: 
+				sort_criteria = MESSAGES_FROM;
+				break;
+			case 3: 
+				sort_criteria = WORDS_TO;
+				break;
+			case 4: 
+				sort_criteria = WORDS_FROM;
+				break;
+			}
+		}
+	} else {
+		/* No sort criteria given */
+		sort_criteria = MESSAGES_FROM;
 	}
 
 	printf("Using loglevel of %d.\n", LOGLEVEL);
@@ -1025,7 +1058,8 @@ int main(int argc, char *argv[])
 	make_temp_copy(NULL, FALSE);
 
 	if(!quit_program) {
-		people_print_info();
+		/* Print information sorted by something */
+		people_print_info(sort_criteria);
 	}
 	people_release();
 
