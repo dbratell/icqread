@@ -51,6 +51,7 @@ unsigned char *typelabel[] = {
 #define INTRO_V97 0x0097
 #define INTRO_V98 0x0098
 #define INTRO_V9C 0x009C
+#define INTRO_V9D 0x009D
 
 /*
  * Incoming (and outgoing?) message.
