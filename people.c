@@ -1,6 +1,8 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <time.h>
 
 #include "people.h"
 
@@ -45,15 +47,23 @@ void people_release()
 void people_free(struct people *p)
 {
 	if(p) {
+		if(p->nick) {
+			free(p->nick);
+			p->nick = NULL;
+		}
 		if(p->name) {
 			free(p->name);
 			p->name = NULL;
+		}
+		if(p->email) {
+			free(p->email);
+			p->email = NULL;
 		}
 		free(p);
 	}
 }
 
-void people_add(int uin, char *name)
+void people_add(int uin, char *nick, char *name, char *email)
 {
 	int hash, count=0;
 
@@ -62,9 +72,25 @@ void people_add(int uin, char *name)
 	assert(p);
 
 	p->uin = uin;
+	p->nick = malloc(strlen(nick)+1);
+	assert(p->nick);
+	strcpy(p->nick, nick);
+
 	p->name = malloc(strlen(name)+1);
 	assert(p->name);
 	strcpy(p->name, name);
+
+	p->email = malloc(strlen(email)+1);
+	assert(p->email);
+	strcpy(p->email, email);
+
+	p->startdate = 0;
+	p->enddate = 0;
+	p->number_of_messages_to=0;
+	p->number_of_messages_from=0;
+	p->number_of_words_to=0;
+	p->number_of_words_from=0;
+
 
 	hash = uin % people_db_size;
 	while(people_db[hash] != NULL) {
@@ -72,16 +98,24 @@ void people_add(int uin, char *name)
 			/* Already here 
 			 * Change to new string
 			 */
+			if(people_db[hash]->nick) {
+				free(people_db[hash]->nick);
+			}
+			people_db[hash]->nick = p->nick;
 			if(people_db[hash]->name) {
 				free(people_db[hash]->name);
 			}
 			people_db[hash]->name = p->name;
+			if(people_db[hash]->email) {
+				free(people_db[hash]->email);
+			}
+			people_db[hash]->email = p->email;
 			free(p);
 			return;
 		}
 		hash = (hash+1) % people_db_size;
 		count++;
-		if(count = people_db_size) {
+		if(count == people_db_size) {
 			/* Database full */
 			assert(0);
 		}
@@ -108,4 +142,58 @@ struct people *people_lookup(int uin)
 	}
 	/* Nothing found */
 	return NULL;
+}
+
+void people_print_info()
+{
+	struct people *p;
+	struct tm *t;
+
+	int timespan = 0;
+
+	int total_sent = 0, total_received = 0;
+	int i=0;
+	for(i=0; i<people_db_size; i++) {
+		if(people_db[i] != NULL) {
+			p = people_db[i];
+			printf("Uin: %d\n", p->uin);
+			printf("Nick: %s\nName: %s\ne-Mail:%s\n",
+				p->nick, p->name, p->email);
+			t = localtime(&p->startdate);
+			if(t != NULL) {
+				printf("Between %.24s and ", asctime(t));
+				t = localtime(&p->enddate);
+				if(t != NULL) {
+					printf("%.24s.\n", asctime(t));
+					timespan = p->enddate - p->startdate;
+					timespan = timespan / (24*60*60);
+					timespan +=1;
+				} else {
+					printf("now.\n");
+				}
+			} else {
+				t = localtime(&p->enddate);
+				if(t != NULL) {
+					printf("Until %.24s.\n", asctime(t));
+				} else {
+					printf("During all time.\n");
+				}
+			}
+
+			if(timespan >0) {
+				printf("Sent messages:     %d \t(%.1f per day)\nReceived messages: %d \t(%.1f per day)\n",
+				p->number_of_messages_to, (float)p->number_of_messages_to/(float)timespan, 
+				p->number_of_messages_from, (float)p->number_of_messages_from/(float)timespan);
+			} else {
+				printf("Sent messages: %d\nReceived messages: %d\n",
+					p->number_of_messages_to, p->number_of_messages_from);
+			}
+			printf("\n");
+			total_sent += p->number_of_messages_to;
+			total_received += p->number_of_messages_from;
+		}
+	}
+
+	printf("\nTotal sent: %d\nTotal received: %d\n", 
+		total_sent, total_received);
 }

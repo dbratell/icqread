@@ -144,6 +144,14 @@
  */
 #define TYPE_X0C 0x000C
 
+/*
+ * Something with mail.
+ * First uin (system = 1). 4 bytes.
+ * Then length (2 bytes) and string if that length.
+ * Then the normal 10 bytes and the date (4 bytes).
+ * Then the v96-part and the final 4 bytes.
+ */
+#define TYPE_X0F 0x000F
 
 /*
  * Contact list
