@@ -4,6 +4,7 @@
 #include <assert.h>
 
 #include "ICQread.h"
+#include "people.h"
 
 int count = 0;
 
@@ -16,6 +17,23 @@ struct tm *readdate(FILE *datafil, int version)
 	return localtime(&date);
 
 }
+
+void readstring(FILE *datafil, int version, struct textdata *td)
+{
+	fread(&(td->length), 2, 1, datafil);
+	count +=2;
+
+	if(td->length>0) {
+		td->string = malloc(td->length);
+		assert(td->string);
+		fread(td->string, td->length, 1, datafil);
+		count +=td->length;
+	} else {
+		td->string = 0;
+	}
+	
+}
+
 
 void readstart(FILE *datafil, int version, struct startfields *sf)
 {
@@ -77,6 +95,9 @@ void handle_x01(FILE *datafil, int version)
 
 	struct tm *newtime;
 
+	struct people *p;
+	char *name;
+
 	readstart(datafil, version, &sf);
 
 	readinfo(datafil, version, &info);
@@ -85,10 +106,18 @@ void handle_x01(FILE *datafil, int version)
 	readend(datafil, version, &se);
 	readv96data(datafil, version, &vd);
 
+	p = people_lookup(sf.uin);
+	if(p == NULL) {
+		name = "<unknown>";
+	} else {
+		name = p->name;
+	}
+
 	if(info.destination == 1) {
-		printf("Message sent:\n");
+		printf("Message sent to: %s\n", 
+			name);
 	} else if(info.destination == 0) {
-		printf("Message arrived:\n");
+		printf("Message arrived from %s:\n", name);
 	} else {
 		printf("Message (X01) with unknown destination: %x\n");
 	}
@@ -123,12 +152,13 @@ void handle_x02(FILE *datafil, int version)
 	struct endfields se;
 	struct infofields info;
 	struct v96data vd;
+	struct textdata people;
 
-	__int16 length2;
+	/* __int16 length2; */
 
 	struct tm *newtime;
 
-	char *data_string2;
+/*	char *data_string2; */
 
 	readstart(datafil, version, &sf);
 
@@ -137,13 +167,7 @@ void handle_x02(FILE *datafil, int version)
 	newtime = readdate(datafil, version);
 	readv96data(datafil, version, &vd);
 
-	fread(&length2, 2, 1, datafil);
-	count +=2;
-
-	data_string2 = malloc(length2);
-	assert(data_string2);
-	fread(data_string2, length2, 1, datafil);
-	count +=length2;
+	readstring(datafil, version, &people);
 
 	readend(datafil, version, &se);
 
@@ -159,12 +183,13 @@ void handle_x02(FILE *datafil, int version)
 		printf("tid: <skum tid>");
 	}
 	printf("Other people?\nLength = %d\nString: '%s'\n", 
-		length2,data_string2);
+		people.length,people.string);
 
 	printf("\n");
 
 	free(sf.string);
-	free(data_string2);
+	free(people.string);
+/*	free(data_string2); */
 
 	return;
 }
@@ -179,15 +204,13 @@ void handle_x03(FILE *datafil, int version)
 	struct startfields sf;
 	struct endfields se; 
 	struct infofields info;
+	struct textdata filename;
+	struct textdata junkstring;
 	struct v96data vd;
-
-	__int16 length2, length3;
 
 	struct tm *newtime;
 
 	__int32 filelength;
-
-	char *data_string2, *data_string3;
 
 	readstart(datafil, version, &sf);
 
@@ -197,28 +220,13 @@ void handle_x03(FILE *datafil, int version)
 
 	readv96data(datafil, version, &vd);
 
-	fread(&length2, 2, 1, datafil);
-	count +=2;
+	readstring(datafil, version, &filename);
 
-	data_string2 = malloc(length2);
-	assert(data_string2);
-	fread(data_string2, length2, 1, datafil);
-	count +=length2;
 
 	fread(&filelength, 4, 1, datafil);
 	count +=4;
 
-	fread(&length3, 2, 1, datafil);
-	count +=2;
-
-	if(length3 != 0) {
-		data_string3 = malloc(length3);
-		assert(data_string3);
-		fread(data_string3, length3, 1, datafil);
-		count +=length3;
-	} else {
-		data_string3 = NULL;
-	}
+	readstring(datafil, version, &junkstring);
 
 	readend(datafil, version, &se);
 
@@ -233,20 +241,20 @@ void handle_x03(FILE *datafil, int version)
 	} else {
 		printf("tid: <skum tid>");
 	}
-	printf("File:\nLength_of_name = %d\nName: '%s'\nSize (?): %d\n", 
-		length2,data_string2, filelength);
+	printf("File:\nLength_of_name = %d\nName: '%s'\nSize : %d bytes\n", 
+		filename.length, filename.string, filelength);
 
-	if(length3 != 0) {
+	if(junkstring.length != 0) {
 		printf("Response?:\nLength: %d\nString:'%s'\n", 
-			length3,data_string3);
+			junkstring.length, junkstring.string);
 	} else {
 		printf("Empty response(?).\n");
 	}
 	printf("\n");
 
 	free(sf.string);
-	free(data_string2);
-	if(data_string3) free(data_string3);
+	free(filename.string);
+	if(junkstring.string) free(junkstring.string);
 
 	return;
 }
@@ -418,17 +426,14 @@ void handle_x0A(FILE *datafil, int version)
 	struct startfields sf;
 	struct endfields se;
 	struct infofields info;
+	struct textdata programname;
 	struct v96data vd;
-
-	__int16 length2;
 
 	struct tm *newtime;
 
 	__int32 junk4, junk5;
 	__int16 junk6;
 
-
-	char *data_string2;
 
 	readstart(datafil, version, &sf);
 
@@ -438,13 +443,7 @@ void handle_x0A(FILE *datafil, int version)
 
 	readv96data(datafil, version, &vd);
 
-	fread(&length2, 2, 1, datafil);
-	count +=2;
-
-	data_string2 = malloc(length2);
-	assert(data_string2);
-	fread(data_string2, length2, 1, datafil);
-	count +=length2;
+	readstring(datafil, version, &programname);
 
 	fread(&junk4, 4, 1, datafil);
 	count +=4;
@@ -467,7 +466,7 @@ void handle_x0A(FILE *datafil, int version)
 		printf("tid: <skum tid>");
 	}
 	printf("Program:\nLength = %d\nString: '%s'\n", 
-		length2,data_string2);
+		programname.length,programname.string);
 
 	printf("junk4: %x\n", junk4);
 	printf("junk5: %x\n", junk5);
@@ -475,7 +474,7 @@ void handle_x0A(FILE *datafil, int version)
 	printf("\n");
 
 	free(sf.string);
-	free(data_string2);
+	free(programname.string);
 
 	return;
 }
@@ -504,6 +503,8 @@ void handle_x0B(FILE *datafil, int version)
 
 	readend(datafil, version, &se);
 	readv96data(datafil, version, &vd);
+
+	people_add(sf.uin, sf.string);
 
 	printf("Message X0B (The user has asked to be added to your Contact List)\nuin: %d,  length = %d\nString: %s\n", 
 		sf.uin, sf.length,sf.string);
@@ -544,6 +545,8 @@ void handle_x0C(FILE *datafil, int version)
 
 	readend(datafil, version, &se);
 	readv96data(datafil, version, &vd);
+
+	people_add(sf.uin, sf.string);
 
 	printf("Message X0C (You were added by)\nuin: %d,  length = %d\nString: %s\n", 
 		sf.uin, sf.length,sf.string);
@@ -603,9 +606,7 @@ void handle_x13(FILE *datafil, int version)
 	return;
 }
 
-
-
-int main(int argc, char *argv[])
+void readfile(FILE *datafil) 
 {
 	char buf[4];
 	__int32 *data32;
@@ -615,29 +616,13 @@ int main(int argc, char *argv[])
 
 	int go_on = TRUE;
 
-	FILE *datafil;
-
 	buf[0]=buf[1]=buf[2]=buf[3]=0;
 
 	data32 = (__int32 *)&buf[0];
 	data16 = (__int16 *)&buf[2];
 
-	if(argc!=2) {
-		printf("icqread <filnamn>\n");
-		exit(1);
-	}
-
-	/* Open datafile in readonly binary mode. */
-	datafil = fopen(argv[1], "rb");
-	if(!datafil) {
-		perror("Datafil");
-		exit(1);
-	}
-
-	printf("Öppnade datafil\n");
-
 	while(go_on) {
-		printf("Next...\n");
+		printf("Next post...\n");
 		buf[0]=buf[2];
 		buf[1]=buf[3];
 		fread(&buf[2], 2, 1, datafil);
@@ -651,14 +636,14 @@ int main(int argc, char *argv[])
 			(*data16 != INTRO_V96) && 
 			(*data16 != INTRO_V98) &&
 			(!feof(datafil))) {
-			printf("Searching for start\n");
+			printf("Couldn't find header. Searching...\n");
 			buf[0]=buf[2];
 			buf[1]=buf[3];
 			fread(&buf[2], 2, 1, datafil);
 			count += 2;
 		}
 
-		if(feof(datafil)) return 0;
+		if(feof(datafil)) return;
 
 		version = *data16;
 
@@ -721,7 +706,38 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	return 0;
+	return;
 
+}
+
+
+int main(int argc, char *argv[])
+{
+
+	FILE *datafil;
+
+	if(argc!=2) {
+		printf("icqread <filnamn>\n");
+		exit(1);
+	}
+
+	/* Open datafile in readonly binary mode. */
+	datafil = fopen(argv[1], "rb");
+	if(!datafil) {
+		perror("Datafil");
+		exit(1);
+	}
+
+	printf("Öppnade datafil\n");
+
+	/* init people database */
+
+	people_init(67);
+
+	readfile(datafil);
+	
+	people_release();
+
+	return 0;
 
 }

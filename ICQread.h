@@ -102,7 +102,7 @@
 
  
 /*
- * Probably "Incoming message". (System Request?)
+ * Probably "System Message". (System Request?)
  * Starts with a 4-byte uin, followed by a 2-byte
  * message length. Then follows the message string
  * and 10 bytes of unknown content. Then the date
@@ -175,3 +175,9 @@ struct infofields {
 	__int32 destination;
 	__int16 protocolversion;
 };
+
+struct textdata {
+	__int16 length;
+	char *string;
+};
+
