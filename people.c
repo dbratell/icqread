@@ -209,6 +209,8 @@ struct people_array people_make_array()
 
 int people_getvalue(struct people *p, int criteria)
 {
+	long timespan;
+
 	switch(criteria)
 	{
 	case STARTDATE: return p->startdate;
@@ -217,8 +219,18 @@ int people_getvalue(struct people *p, int criteria)
 	case MESSAGES_FROM: return p->number_of_messages_from;
 	case WORDS_TO:	return p->number_of_words_to;
 	case WORDS_FROM:	return p->number_of_words_from;
+	case MESSAGES_TO_INTENSITY:
+			timespan = time(NULL) - p->startdate;
+			timespan *= 100;
+			timespan = timespan / (24*60*60);
+			return p->number_of_messages_to/timespan;
+	case MESSAGES_FROM_INTENSITY:
+			timespan = time(NULL) - p->startdate;
+			timespan *= 100;
+			timespan = timespan / (24*60*60);
+			return p->number_of_messages_from/timespan;
 	default:
-		fprintf(stderr, "Not a known criterie in people_getvalue (%d).\n", criteria);
+		fprintf(stderr, "Not a known criteria in people_getvalue (%d).\n", criteria);
 		return 0;
 	}
 }
@@ -240,6 +252,7 @@ void people_array_qsort(struct people_array *pa, int first, int last, int criter
 {
 	int pivot;
 	int i,j,middle;
+	int first_value, middle_value, last_value;
 
 	if(first>=last) {
 		/* Nothing to sort */
@@ -262,18 +275,19 @@ void people_array_qsort(struct people_array *pa, int first, int last, int criter
 	 * Also place the numbers in that order.
 	 */
 	middle = (first+last)/2;
-	if(people_getvalue(pa->array[first],criteria) <
-		people_getvalue(pa->array[middle],criteria)) {
+	first_value = people_getvalue(pa->array[first],criteria);
+	middle_value = people_getvalue(pa->array[middle],criteria);
+	last_value = people_getvalue(pa->array[last],criteria);
+
+	if(first_value < middle_value) {
 		/* first < middle */
-		if(people_getvalue(pa->array[last],criteria) <
-			people_getvalue(pa->array[first],criteria)) {
+		if(last_value < first_value) {
 			/* last < first < middle */
 			people_swap(&(pa->array[first]),&(pa->array[middle]));
 			people_swap(&(pa->array[first]),&(pa->array[last]));
 		} else {
 			/* first < middle, first <= last */
-			if(people_getvalue(pa->array[middle],criteria) <
-				people_getvalue(pa->array[last],criteria)) {
+			if(middle_value < last_value) {
 				/* first < middle < last */
 				/* Already in order */
 			} else {
@@ -283,14 +297,12 @@ void people_array_qsort(struct people_array *pa, int first, int last, int criter
 		}
 	} else {
 		/* middle <= first */
-		if(people_getvalue(pa->array[last],criteria) <
-			people_getvalue(pa->array[middle],criteria)) {
+		if(last_value < middle_value) {
 			/* last < middle <= first */
 			people_swap(&(pa->array[first]),&(pa->array[last]));
 		} else {
 			/* middle <= first, middle <= last*/
-			if(people_getvalue(pa->array[first],criteria) <
-				people_getvalue(pa->array[last],criteria)) {
+			if(first_value < last_value) {
 				/* middle >= first > last */
 				people_swap(&(pa->array[first]),&(pa->array[middle]));
 			} else {
@@ -306,7 +318,7 @@ void people_array_qsort(struct people_array *pa, int first, int last, int criter
 		return;
 	}
 
-	pivot = people_getvalue(pa->array[middle],criteria);
+	pivot = middle_value;
 	/* pivot now contains the middle value */
 
 	/* Move pivot to a better place. */
@@ -352,7 +364,7 @@ void people_print_info(int sort_criteria)
 	struct people *p;
 	struct tm *t;
 
-	int timespan = 0;
+	long timespan = 0;
 
 	int total_sent_mess = 0, total_received_mess = 0;
 	int total_sent_words = 0, total_received_words = 0;

@@ -1,5 +1,5 @@
 /*
- * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.18 1998/05/06 16:23:32 bratell Exp $
+ * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.19 1998/05/07 12:45:27 bratell Exp $
  * 
  */
 
@@ -965,11 +965,13 @@ void usage()
 	printf("\nWhere:\n");
 	printf("<filename> \tis the name of the historyfile to analyze. Normally it's you\n\t\tuin with msg.dat at the end. I recommend you working\n\t\ton a copy of the file since I haven't analyzed ICQ behaviour\n\t\twhen someone else is reading the file.\n");
 	printf("LOGLEVEL   \tcontrols how much information is shown. 1 gives only summary\n\t\tstatistics and 10 gives all info collected. You may try it\n\t\tout yourself.\n");
-	printf("Sorts_stats_by\tControls by what the statistics should be sorted.\n");
+	printf("Sort_stats_by\tControls by what the statistics should be sorted.\n");
 	printf("\t\t\t1 = Number of sent messages\n");
 	printf("\t\t\t2 = Number of received messages\n");
-	printf("\t\t\t4 = Number of sent words\n");
-	printf("\t\t\t3 = Number of received words\n");
+	printf("\t\t\t3 = Number of sent words\n");
+	printf("\t\t\t4 = Number of received words\n");
+	printf("\t\t\t5 = Intensity of sent messages\n");
+	printf("\t\t\t6 = Intensity of received messages\n");
 	printf("\n");
 	printf("This version compiled %s %s\n\n", __DATE__, __TIME__);
 }
@@ -1011,7 +1013,7 @@ int main(int argc, char *argv[])
 
 	if(argc==4) {
 		sort_criteria=atoi(argv[3]);
-		if((sort_criteria<1) || (sort_criteria>4)) {
+		if((sort_criteria<1) || (sort_criteria>6)) {
 			/* Illegal sort criteria */
 			fprintf(stderr, "Illegal sort criteria '%s'\n", argv[3]);
 			sort_criteria = MESSAGES_FROM;
@@ -1029,6 +1031,14 @@ int main(int argc, char *argv[])
 			case 4: 
 				sort_criteria = WORDS_FROM;
 				break;
+			case 5: 
+				sort_criteria = MESSAGES_TO_INTENSITY;
+				break;
+			case 6: 
+				sort_criteria = MESSAGES_FROM_INTENSITY;
+				break;
+			default:
+				fprintf(stderr, "Internal error #78\n");
 			}
 		}
 	} else {
@@ -1044,7 +1054,7 @@ int main(int argc, char *argv[])
 		sizeof(date_distribution[0][0])*NR_OF_YEARS*12);
 	
 	/* init people database */
-	/* It may not be full since the program will crash if
+	/* It must not become full since the program will crash if
 	 * it is.
 	 */
 	people_init(313);

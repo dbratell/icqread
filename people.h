@@ -23,3 +23,9 @@ void people_print_info(int sort_criteria);
 #define MESSAGES_FROM 4
 #define WORDS_TO 5
 #define WORDS_FROM 6
+/* 7 and 8 is the number of messages per day multiplied
+ * by 100.
+ */
+#define MESSAGES_TO_INTENSITY 7
+#define MESSAGES_FROM_INTENSITY 8
+
