@@ -24,7 +24,13 @@
  * Incoming (and outgoing?) message. (this number too?)
  * Starts with a 4-byte uin, followed by a 2-byte
  * message length. Then follows the message string
- * and 10 bytes of unknown content. Then the date
+ * and first 4 bytes of unknown content. They are
+ * mostly FFFFFFFF and 00000000. Then there are 
+ * another 4-byte group. They seem to be 00000000 when
+ * a message arrived from somewhere else and 00000001
+ * when a message was sent. Then there are two more
+ * bytes which probably is the version number. 
+ * Then the date
  * and another length of 2 bytes followed by a new
  * string of that length. Finally there are 4 more 
  * bytes of unknown content.
@@ -162,4 +168,10 @@ struct endfields {
 struct v96data {
 	__int8 junk1;
 	__int32 junk2;
+};
+
+struct infofields {
+	__int32 junk1;
+	__int32 destination;
+	__int16 protocolversion;
 };
