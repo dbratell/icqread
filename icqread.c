@@ -1,3 +1,8 @@
+/*
+ * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.11 1998/04/26 09:54:13 bratell Exp $
+ * 
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +41,121 @@ char *typelabel[] = {
 
 struct people *get_people(int uin);
 
+void printstatus(int type, int status)
+{
+	if(LOGLEVEL>5) {
+		/* Print status */
+		switch(status) {
+		case -1:
+			printf("Recived message ok.\n");
+			break;
+			
+		case 0:
+			printf("Sent message arrived ok/accepted.\n");
+			break;
 
+		case 1:
+			if(type == TYPE_MESS) {
+				/* Message */
+				/* Maybe that the receiver wasn't online. */
+			} else if(type == TYPE_CHAT) {
+				/* Chat */
+				printf("And you accepted the invitation\n");
+			} else if(type == TYPE_FILE) {
+				printf("The user has denied your file request.\n");
+			} else if(type == TYPE_URL) {
+				/* Nothing special */
+			} else if(type == TYPE_X0B) {
+				/* User asked to be added */
+				/* Nothing special */
+			} else if(type == TYPE_X0C) {
+				/* You were added */
+				/* Nothing special */
+			} else if(type == TYPE_EXTERNAL) {
+				printf("You have denied the request.\n");
+			} else {
+				/* Normal response for some types of messages */
+				printf("xyzstatus: %x\n", status);
+			}
+			break;
+
+		case 2:
+			if(type == TYPE_EXTERNAL) {
+				printf("The user did not have the program.\n");
+			} else {
+				printf("xyzstatus: %x\n", status);
+			}
+			break;
+
+		case 3:
+			if(type == TYPE_URL) {
+				/* URL */
+				printf("You opened it in your browser\n");
+			} else {
+				printf("xyzstatus: %x\n", status);
+			}
+			break;
+
+		case 4:
+			printf("The receiver was away\n");
+			break;
+
+		case 6:
+			printf("No contact with intended receiver\n");
+			break;
+		
+		case 7:
+			if(type == TYPE_CHAT) {
+				printf("User has canceled the chat request before you answered it.\n");
+			} else if(type == TYPE_FILE) {
+				printf("User has canceled the file request before you answered it.\n");
+			} else if(type == TYPE_EXTERNAL) {
+				printf("User has canceled the external request before you answered it.\n");			
+			} else {
+				printf("xyzstatus: %x\n", status);
+			}
+			break;
+
+		case 8:
+			if(type == TYPE_CHAT) {
+				printf("You canceled the chat request before anyone answered it.\n");
+			} else if(type == TYPE_FILE) {
+				printf("You canceled the file request before anyone answered it.\n");
+			} else if(type == TYPE_EXTERNAL) {
+				printf("You canceled the external request before anyone answered it.\n");
+			} else {
+				printf("(canceled) xyzstatus: %x\n", status);
+			}
+			break;
+
+		case 11:
+			if(type == TYPE_MESS) {
+				printf("And the user was out.\n");
+			} else if(type == TYPE_FILE) {
+				printf("A file request was received while you were N/A.\n");
+			} else {
+				printf("xyzstatus: %x\n", status);
+			}
+			break;
+
+		case 14:
+			if(type == TYPE_MESS) {
+				printf("And the user was out.\n");
+			} else if(type == TYPE_FILE) {
+				printf("But the user was out\n");
+			} else if(type == TYPE_URL) {
+				printf("And the user was out\n");
+			} else {
+				printf("(out) xyzstatus: %x\n", status);
+			}
+			break;
+
+		default:
+			printf("xyzstatus: %x\n", status);
+			break;
+		}
+	}
+}
 
 void printheader(int type, struct startfields *sf)
 {
@@ -80,71 +199,7 @@ void printheader(int type, struct startfields *sf)
 
 	if(LOGLEVEL>6) printf("UIN: %d\n", sf->uin);
 	if(LOGLEVEL>8) printf("protocol: %x\n", sf->protocolversion);
-	if(LOGLEVEL>5) {
-		/* Print status */
-		switch(sf->status) {
-		case -1:
-			/* printf("Recived message ok.\n"); */
-			break;
-
-		case 0:
-			/* printf("Sent message arrived ok.\n"); */
-			break;
-
-		case 1:
-			if(type == TYPE_X01) {
-				/* Message */
-				/* Maybe that the receiver wasn't online. */
-			} else if(type == TYPE_CHAT) {
-				/* Chat */
-				printf("And you accepted the invitation\n");
-			} else if(type == TYPE_FILE) {
-				printf("The user has denied your file request.\n");
-			} else if(type == TYPE_URL) {
-				/* Nothing special */
-			} else if(type == TYPE_X0B) {
-				/* User asked to be added */
-				/* Nothing special */
-			} else if(type == TYPE_X0C) {
-				/* You were added */
-				/* Nothing special */
-			} else {
-				/* Normal response for some types of messages */
-				printf("xyzstatus: %x\n", sf->status);
-			}
-			break;
-
-		case 3:
-			if(type == TYPE_URL) {
-				/* URL */
-				printf("You opened it in your browser\n");
-			} else {
-				printf("xyzstatus: %x\n", sf->status);
-			}
-			break;
-
-		case 4:
-			printf("The receiver was away\n");
-			break;
-
-		case 6:
-			printf("No contact with intended receiver\n");
-			break;
-		
-		case 7:
-			if(type == TYPE_CHAT) {
-				printf("User has canceled the chat request before you answered it.");
-			} else {
-				printf("xyzstatus: %x\n", sf->status);
-			}
-			break;
-
-		default:
-			printf("xyzstatus: %x\n", sf->status);
-			break;
-		}
-	}
-
+	if(LOGLEVEL>5) printstatus(type, sf->status);
 }
 
 
@@ -273,10 +328,22 @@ void readstring(FILE *datafil, int version, struct textdata *td)
 
 void readrecordstart(FILE *datafil, int version, struct startfields *sf)
 {
+	/* Check for the Microsoft Visual C++ compiler,
+	since then I've defined a pragma that makes all
+	fields in the struct packed close, making it
+	possible to read directly into the struct.
+	*/
+#if _MSC_VER>=1100
+	fread(&(sf->type), 8, 1, datafil);
+	count +=8;
+#else	
+	fread(&(sf->type), 2, 1, datafil);
+	count +=2;
 	fread(&(sf->uin), 4, 1, datafil);
 	count +=4;
 	fread(&(sf->length), 2, 1, datafil);
 	count +=2;
+#endif
 
 	if(sf->length>0) {
 		sf->string = malloc(sf->length);
@@ -287,33 +354,31 @@ void readrecordstart(FILE *datafil, int version, struct startfields *sf)
 		sf->string = 0;
 	}
 
-	fread(&(sf->status), 10, 1, datafil);
-	/*
+#if _MSC_VER>=1100
+	fread(&(sf->status), 14, 1, datafil);
+	count +=14;
+#else
 	fread(&(sf->junk1), 4, 1, datafil);
 	count +=4;
 	fread(&(sf->destination), 4, 1, datafil);
 	count +=4;
 	fread(&(sf->protocolversion), 2, 1, datafil);
 	count +=2;
-	*/
-
-	/* Date can probably not be read directly with the 
-	 * others because of inalignment */
-
 	fread(&sf->date,4,1,datafil);
 	count +=4;
-	
+#endif
+
 
 	if(version >= INTRO_V8B) {
-		/*
+#if _MSC_VER>=1100
+		fread(&(sf->junk2), 5, 1, datafil);
+		count += 5;
+#else
 		fread(&(sf->junk2), 1, 1, datafil);
 		count +=1;
 		fread(&(sf->junk3), 4, 1, datafil);
 		count +=4;
-		*/
-		fread(&(sf->junk2), 5, 1, datafil);
-		count += 5;
-
+#endif
 	} else {
 		sf->junk2 = 0;
 		sf->junk3 = 0;
@@ -330,22 +395,16 @@ void readrecordend(FILE *datafil, int version, struct endfields *se)
 /* Handle messages of type 1 (read ICQread.h for more
  * information.
  */
-void handle_x01(FILE *datafil, int version)
+void handle_mess(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se;
-
-	readrecordstart(datafil, version, &sf);
 
 	readrecordend(datafil, version, &se);
 
-	printheader(TYPE_X01, &sf);
-
-	if(LOGLEVEL>5) printf("Text: '%s'\n", sf.string);
-
+	printheader(TYPE_MESS, sf);
+	if(LOGLEVEL>5) printf("Text: '%s'\n", sf->string);
 	if(LOGLEVEL>3) printf("\n");
 
-	free(sf.string);
 
 	return;
 }
@@ -356,28 +415,21 @@ void handle_x01(FILE *datafil, int version)
 /* Handle messages of type 2 (read ICQread.h for more
  * information.
  */
-void handle_chat(FILE *datafil, int version)
+void handle_chat(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se;
 
 	struct textdata people;
 
-	readrecordstart(datafil, version, &sf);
-
-
 	readstring(datafil, version, &people);
-
 	readrecordend(datafil, version, &se);
 
-	printheader(TYPE_CHAT, &sf);
-
-	if(LOGLEVEL>5) printf("Other people?\nString: '%s'\n", 
+	printheader(TYPE_CHAT, sf);
+	if(LOGLEVEL>5) printf("Text: '%s'\n", sf->string);
+	if(LOGLEVEL>5) printf("People already in: '%s'\n", 
 		people.string);
-
 	if(LOGLEVEL>3) printf("\n");
 
-	free(sf.string);
 	free(people.string);
 
 	return;
@@ -388,40 +440,38 @@ void handle_chat(FILE *datafil, int version)
 /* Handle messages of type 3 (read ICQread.h for more
  * information.
  */
-void handle_file(FILE *datafil, int version)
+void handle_file(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se; 
 	struct textdata filename;
-	struct textdata junkstring;
+	struct textdata directoryname;
 	
-
 	__int32 filelength;
 
-	readrecordstart(datafil, version, &sf);
 	readstring(datafil, version, &filename);
 
 	fread(&filelength, 4, 1, datafil);
 	count +=4;
 
-	readstring(datafil, version, &junkstring);
+	readstring(datafil, version, &directoryname);
 	readrecordend(datafil, version, &se);
 
-	printheader(TYPE_FILE, &sf);
-
-	if(LOGLEVEL>5) printf("File:\nName: '%s'\nSize : %d bytes\n", 
+	printheader(TYPE_FILE, sf);
+	if(LOGLEVEL>5) printf("Text: '%s'\n", sf->string);
+	if(LOGLEVEL>5) printf("Filename: '%s'\nSize : %d bytes\n", 
 		filename.string, filelength);
-	if(junkstring.length != 0) {
-		if(LOGLEVEL>6) printf("Response?:\nString:'%s'\n", 
-			junkstring.string);
+	if(directoryname.length != 0) {
+		if(LOGLEVEL>6) printf("Saved in:'%s'\n", 
+			directoryname.string);
 	} else {
-		if(LOGLEVEL>6) printf("Empty response(?).\n");
+		/* The file was sent from here. No
+		 * directory "involved".
+		 */
 	}
 	if(LOGLEVEL>3) printf("\n");
 
-	free(sf.string);
 	free(filename.string);
-	if(junkstring.string) free(junkstring.string);
+	if(directoryname.string) free(directoryname.string);
 
 	return;
 }
@@ -430,20 +480,17 @@ void handle_file(FILE *datafil, int version)
 /* Handle messages of type 4 (read ICQread.h for more
  * information.
  */
-void handle_url(FILE *datafil, int version)
+void handle_url(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se;
 	
 
-	readrecordstart(datafil, version, &sf);
 	readrecordend(datafil, version, &se);
 
-	printheader(TYPE_URL, &sf);
-	if(LOGLEVEL>5) printf("Data: '%s'\n", sf.string);
+	printheader(TYPE_URL, sf);
+	if(LOGLEVEL>5) printf("Data: '%s'\n", sf->string);
 	if(LOGLEVEL>3) printf("\n");
 
-	free(sf.string);
 
 	return;
 }
@@ -453,18 +500,15 @@ void handle_url(FILE *datafil, int version)
 /* Handle messages of type 6 (read ICQread.h for more
  * information.
  */
-void handle_x06(FILE *datafil, int version)
+void handle_x06(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se;
 	
-	readrecordstart(datafil, version, &sf);
 	readrecordend(datafil, version, &se);
 
-	printheader(TYPE_X06, &sf);
+	printheader(TYPE_X06, sf);
+	if(LOGLEVEL>5) printf("Text: '%s'\n", sf->string);
 	if(LOGLEVEL>3) printf("\n");
-
-	free(sf.string);
 
 	return;
 }
@@ -472,18 +516,15 @@ void handle_x06(FILE *datafil, int version)
 /* Handle messages of type 7 (read ICQread.h for more
  * information.
  */
-void handle_x07(FILE *datafil, int version)
+void handle_x07(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se;
 	
-	readrecordstart(datafil, version, &sf);
 	readrecordend(datafil, version, &se);
 
-	printheader(TYPE_X07, &sf);
+	printheader(TYPE_X07, sf);
+	if(LOGLEVEL>5) printf("Text: '%s'\n", sf->string);
 	if(LOGLEVEL>3) printf("\n");
-
-	free(sf.string);
 
 	return;
 }
@@ -491,36 +532,31 @@ void handle_x07(FILE *datafil, int version)
 /* Handle messages of type 8 (read ICQread.h for more
  * information.
  */
-void handle_x08(FILE *datafil, int version)
+void handle_x08(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se;
 	
-	readrecordstart(datafil, version, &sf);
 	readrecordend(datafil, version, &se);
 
-	printheader(TYPE_X08, &sf);
+	printheader(TYPE_X08, sf);
+	if(LOGLEVEL>5) printf("Text: '%s'\n", sf->string);
 	if(LOGLEVEL>3) printf("\n");
 	
-	free(sf.string);
 	return;
 }
 
 /* Handle messages of type 9 (read ICQread.h for more
  * information.
  */
-void handle_x09(FILE *datafil, int version)
+void handle_x09(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se;
 	
-	readrecordstart(datafil, version, &sf);
 	readrecordend(datafil, version, &se);
 
-	printheader(TYPE_X09, &sf);
+	printheader(TYPE_X09, sf);
+	if(LOGLEVEL>5) printf("Text: '%s'\n", sf->string);
 	if(LOGLEVEL>3) printf("\n");
-
-	free(sf.string);
 
 	return;
 }
@@ -529,9 +565,8 @@ void handle_x09(FILE *datafil, int version)
 /* Handle messages of type 10 (read ICQread.h for more
  * information.
  */
-void handle_x0A(FILE *datafil, int version)
+void handle_external(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se;
 	struct textdata programname;
 	
@@ -539,7 +574,6 @@ void handle_x0A(FILE *datafil, int version)
 	__int16 junk6;
 
 
-	readrecordstart(datafil, version, &sf);
 	readstring(datafil, version, &programname);
 	fread(&junk4, 4, 1, datafil);
 	count +=4;
@@ -549,15 +583,15 @@ void handle_x0A(FILE *datafil, int version)
 	count +=2;
 	readrecordend(datafil, version, &se);
 
-	printheader(TYPE_X0A, &sf);
-	if(LOGLEVEL>5) printf("Program:\nString: '%s'\n", 
+	printheader(TYPE_EXTERNAL, sf);
+	if(LOGLEVEL>5) printf("Reason: '%s'\n", sf->string);
+	if(LOGLEVEL>5) printf("Program: '%s'\n", 
 		programname.string);
 	if(LOGLEVEL>8) printf("junk4: %x\n", junk4);
 	if(LOGLEVEL>8) printf("junk5: %x\n", junk5);
 	if(LOGLEVEL>8) printf("junk6: %x\n", junk6);
 	if(LOGLEVEL>3) printf("\n");
 
-	free(sf.string);
 	free(programname.string);
 
 	return;
@@ -570,9 +604,8 @@ void handle_x0A(FILE *datafil, int version)
 /* Handle messages of type 11 (read ICQread.h for more
  * information.
  */
-void handle_x0B(FILE *datafil, int version)
+void handle_x0B(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se;
 
 	char *nick;
@@ -581,24 +614,24 @@ void handle_x0B(FILE *datafil, int version)
 
 	struct people *p;
 
-	readrecordstart(datafil, version, &sf);
 	readrecordend(datafil, version, &se);
 
-	nick = string2nick(sf.string);
-	name = string2name(sf.string);
-	email = string2email(sf.string);
-	people_add(sf.uin, nick, name, email);
+	nick = string2nick(sf->string);
+	name = string2name(sf->string);
+	email = string2email(sf->string);
+	people_add(sf->uin, nick, name, email);
+
+	p = people_lookup(sf->uin);
+	assert(p);
+
+	printheader(TYPE_X0B, sf);
+	if(LOGLEVEL>5) printf("Nickname: %s\nName:     %s\ne-Mail:   %s\n", 
+		nick, name, email);
+	if(LOGLEVEL>3) printf("\n");
+
 	free(nick);
 	free(name);
 	free(email);
-
-	p = people_lookup(sf.uin);
-	assert(p);
-
-	printheader(TYPE_X0B, &sf);
-	if(LOGLEVEL>3) printf("\n");
-
-	free(sf.string);
 
 	return;
 }
@@ -606,9 +639,8 @@ void handle_x0B(FILE *datafil, int version)
 /* Handle messages of type 12 (read ICQread.h for more
  * information.
  */
-void handle_x0C(FILE *datafil, int version)
+void handle_x0C(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se;
 
 	char *nick;
@@ -617,24 +649,24 @@ void handle_x0C(FILE *datafil, int version)
 
 	struct people *p;
 
-	readrecordstart(datafil, version, &sf);
 	readrecordend(datafil, version, &se);
 
-	nick = string2nick(sf.string);
-	name = string2name(sf.string);
-	email = string2email(sf.string);
-	people_add(sf.uin, nick, name, email);
+	nick = string2nick(sf->string);
+	name = string2name(sf->string);
+	email = string2email(sf->string);
+	people_add(sf->uin, nick, name, email);
+
+	p = people_lookup(sf->uin);
+	assert(p);
+
+	printheader(TYPE_X0C, sf);
+	if(LOGLEVEL>5) printf("Nickname: %s\nName:     %s\ne-Mail:   %s\n", 
+		nick, name, email);
+	if(LOGLEVEL>3) printf("\n");
+
 	free(nick);
 	free(name);
 	free(email);
-
-	p = people_lookup(sf.uin);
-	assert(p);
-
-	printheader(TYPE_X0C, &sf);
-	if(LOGLEVEL>3) printf("\n");
-
-	free(sf.string);
 
 	return;
 }
@@ -643,19 +675,16 @@ void handle_x0C(FILE *datafil, int version)
 /* Handle messages of type 15 (read ICQread.h for more
  * information.
  */
-void handle_x0F(FILE *datafil, int version)
+void handle_mail(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se;
 	
 
-	readrecordstart(datafil, version, &sf);
 	readrecordend(datafil, version, &se);
 
-	printheader(TYPE_X0F, &sf);
+	printheader(TYPE_MAIL, sf);
+	if(LOGLEVEL>5) printf("Text: '%s'\n", sf->string);
 	if(LOGLEVEL>3) printf("\n");
-
-	free(sf.string);
 
 	return;
 }
@@ -664,9 +693,8 @@ void handle_x0F(FILE *datafil, int version)
 /* Handle messages of type 19 (read ICQread.h for more
  * information.
  */
-void handle_x13(FILE *datafil, int version)
+void handle_contactlist(FILE *datafil, int version, struct startfields *sf)
 {
-	struct startfields sf;
 	struct endfields se;
 
 	struct people *p;
@@ -676,21 +704,19 @@ void handle_x13(FILE *datafil, int version)
 	int nr_of_contacts;
 	int uin;
 
-	readrecordstart(datafil, version, &sf);
 	readrecordend(datafil, version, &se);
 
-	printheader(TYPE_X13, &sf);
+	printheader(TYPE_CONTACTLIST, sf);
+	if(LOGLEVEL>5) printf("Contacts:\n%s\n", sf->string);
 	if(LOGLEVEL>3) printf("\n");
 
-	if(LOGLEVEL>5) printf("Contacts:\n%s\n", sf.string);
 
+	for(i=0; (unsigned char)sf->string[i]!=0xFE; i++);
 
-	for(i=0; (unsigned char)sf.string[i]!=0xFE; i++);
-
-	sf.string[i]='\0';
+	sf->string[i]='\0';
 	
-	nr_of_contacts = atoi(sf.string);
-	strpek = &(sf.string[i+1]);
+	nr_of_contacts = atoi(sf->string);
+	strpek = &(sf->string[i+1]);
 
 	for(j=0; j<nr_of_contacts; j++) {
 		/* Pick up UIN */
@@ -712,9 +738,6 @@ void handle_x13(FILE *datafil, int version)
 		strpek = &(strpek[i+1]);
 	}
 
-	free(sf.string);
-
-
 	return;
 }
 
@@ -724,7 +747,9 @@ void readfile(FILE *datafil)
 	__int32 *data32;
 	__int16 *data16;
 
-	int type, version;
+	int version;
+
+	struct startfields sf;
 
 	int go_on = TRUE;
 
@@ -741,18 +766,13 @@ void readfile(FILE *datafil)
 		count += 2;
 
 		/* Assuming all versions has the same 
-		 * format */
-		while((*data16 != INTRO_V72) && 
-			(*data16 != INTRO_V73) && 
-			(*data16 != INTRO_V74) && 
-			(*data16 != INTRO_V78) && 
-			(*data16 != INTRO_V8B) && 
-			(*data16 != INTRO_V96) && 
-			(*data16 != INTRO_V97) && 
-			(*data16 != INTRO_V98) &&
-			(*data16 != INTRO_V9C) &&
+		 * format as the ones I looked into.
+		 */
+		while(((*data16 < INTRO_V72) ||
+			(*data16 > INTRO_V9C)) &&
 			(!feof(datafil))) {
-			printf("Couldn't find header. Found %x. Searching on...\n", *data16);
+			printf("Couldn't find header. Could be newer or older version than previous met (%x).\n", *data16);
+
 			buf[0]=buf[2];
 			buf[1]=buf[3];
 			fread(&buf[2], 2, 1, datafil);
@@ -760,79 +780,97 @@ void readfile(FILE *datafil)
 		}
 
 		if(feof(datafil)) return;
-
+		
+		if((*data16 != INTRO_V72) && 
+			(*data16 != INTRO_V73) && 
+			(*data16 != INTRO_V74) && 
+			(*data16 != INTRO_V78) && 
+			(*data16 != INTRO_V8B) && 
+			(*data16 != INTRO_V96) && 
+			(*data16 != INTRO_V97) && 
+			(*data16 != INTRO_V98) &&
+			(*data16 != INTRO_V9C)) {
+			printf("Didn't recognize version (%x). Assuming similarities with other versions\n", *data16);
+		}
+		
 		version = *data16;
 
-		buf[0]=buf[2];
-		buf[1]=buf[3];
-		fread(&buf[2], 2, 1, datafil);
-		count += 2;
+		readrecordstart(datafil, version, &sf);
 
-		type = *data16;
-
-		switch(type) {
-		case TYPE_X01:
-			handle_x01(datafil, version);
+		switch(sf.type) {
+		case TYPE_MESS:
+			handle_mess(datafil, version, &sf);
 			break;
 
 		case TYPE_CHAT:
-			handle_chat(datafil, version);
+			handle_chat(datafil, version, &sf);
 			break;
 
 		case TYPE_FILE:
-			handle_file(datafil, version);
+			handle_file(datafil, version, &sf);
 			break;
 
 		case TYPE_URL:
-			handle_url(datafil, version);
+			handle_url(datafil, version, &sf);
 			break;
 
 		case TYPE_X06:
-			handle_x06(datafil, version);
+			handle_x06(datafil, version, &sf);
 			break;
 
 		case TYPE_X07:
-			handle_x07(datafil, version);
+			handle_x07(datafil, version, &sf);
 			break;
 
 		case TYPE_X08:
-			handle_x08(datafil, version);
+			handle_x08(datafil, version, &sf);
 			break;
 
 		case TYPE_X09:
-			handle_x09(datafil, version);
+			handle_x09(datafil, version, &sf);
 			break;
 
-		case TYPE_X0A:
-			handle_x0A(datafil, version);
+		case TYPE_EXTERNAL:
+			handle_external(datafil, version, &sf);
 			break;
 
 		case TYPE_X0B:
-			handle_x0B(datafil, version);
+			handle_x0B(datafil, version, &sf);
 			break;
 
 		case TYPE_X0C:
-			handle_x0C(datafil, version);
+			handle_x0C(datafil, version, &sf);
 			break;
 
-		case TYPE_X0F:
-			handle_x0F(datafil, version);
+		case TYPE_MAIL:
+			handle_mail(datafil, version, &sf);
 			break;
 
-		case TYPE_X13:
-			handle_x13(datafil, version);
+		case TYPE_CONTACTLIST:
+			handle_contactlist(datafil, version, &sf);
 			break;
 
 		default:
-			printf("Unknown type: %d\n", type);
+			printf("Unknown type: %d\n", sf.type);
 			go_on = FALSE;
 			break;
 		}
+
+		free(sf.string);
 	}
 	return;
 
 }
 
+/* Print program usage */
+void usage()
+{
+	printf("Usage: icqread <filename> [LOGLEVEL (1-10)]\n");
+	printf("\nWhere:\n");
+	printf("<filename> \tis the name of the historyfile to analyze. Normally it's you\n\t\tuin with msg.dat at the end. I recommend you working\n\t\ton a copy of the file since I haven't analyzed ICQ behaviour\n\t\twhen someone else is reading the file.\n");
+	printf("LOGLEVEL   \tcontrols how much information is shown. 1 gives only summary\n\t\tstatistics and 10 gives all info collected. You may try it\n\t\tout yourself.\n");
+	printf("\n");
+}
 
 int main(int argc, char *argv[])
 {
@@ -841,7 +879,7 @@ int main(int argc, char *argv[])
 	FILE *datafil;
 
 	if(argc<2 || argc >3) {
-		printf("icqread <filnamn> [LOGLEVEL (1-10)]\n");
+		usage();
 		exit(1);
 	}
 
@@ -859,14 +897,18 @@ int main(int argc, char *argv[])
 		if((loglevel > 0) && (loglevel <= 10)) {
 			LOGLEVEL = loglevel;
 		}
-		printf("Using loglevel of %d.\n", LOGLEVEL);
 	}
+
+	printf("Using loglevel of %d.\n", LOGLEVEL);
 		
 
 	/* init people database */
+	/* It may not be full since the program will crash if
+	 * it is.
+	 */
 	people_init(313);
 
-	people_add(1, "System", "ICQ System", "N/A");
+	people_add(1, "System", "ICQ Server", "N/A");
 	readfile(datafil);
 	people_print_info();
 	people_release();

@@ -24,7 +24,7 @@
  * In V96 (V8B?) there seems to be 5 more bytes at the end.
  * Strange odd number.
  */
-#define TYPE_X01 0x0001
+#define TYPE_MESS 0x0001
 
 /*
  * Incoming (and outgoing?) chat.
@@ -132,7 +132,7 @@
  * the program to be run. Last there are 14 unknown
  * bytes.
  */
-#define TYPE_X0A 0x000A
+#define TYPE_EXTERNAL 0x000A
  
 
  
@@ -161,7 +161,7 @@
  * Then the normal 10 bytes and the date (4 bytes).
  * Then the v96(V8B?)-part and the final 4 bytes.
  */
-#define TYPE_X0F 0x000F
+#define TYPE_MAIL 0x000F
 
 /*
  * Contact list
@@ -170,10 +170,15 @@
  * bytes and then a date. And then finally 4 more
  * undefined bytes. (V96 (V8B?)+ 5 more bytes)
  */
-#define TYPE_X13 0x0013
+#define TYPE_CONTACTLIST 0x0013
 
+#if _MSC_VER>=1100
+/* To be able to read directly into the struct */
+#pragma pack(push,1)
+#endif
 
 struct startfields {
+	__int16 type;
 	__int32 uin;
 	__int16 length;
 	char *string;
@@ -185,6 +190,9 @@ struct startfields {
 	__int8 junk2;
 	__int32 junk3;
 };
+#if _MSC_VER>=1100
+#pragma pack(pop)
+#endif
 
 /* The format of the statusfield is mostly unknown 
  * but I have gathered the following data:
