@@ -7,8 +7,10 @@
 #define INTRO_V72 0x0072
 #define INTRO_V73 0x0073
 #define INTRO_V74 0x0074
+#define INTRO_V78 0x0078
 #define INTRO_V8B 0x008B
 #define INTRO_V96 0x0096
+#define INTRO_V97 0x0097
 #define INTRO_V98 0x0098
 #define INTRO_V9C 0x009C
 
@@ -39,7 +41,7 @@
  * string of that length. Finally there are 4 more 
  * bytes of unknown content.
  */
-#define TYPE_X02 0x0002
+#define TYPE_CHAT 0x0002
  
  
 /*
@@ -58,7 +60,7 @@
  * of that length. 
  * And last there are 4 bytes of unknown content.
  */
-#define TYPE_X03 0x0003
+#define TYPE_FILE 0x0003
 
  
  
@@ -72,7 +74,7 @@
  * In V96 (V8B?) there seems to be 5 more bytes at the end.
  * Strange odd number.
  */
-#define TYPE_X04 0x0004
+#define TYPE_URL 0x0004
 
  
  
@@ -95,7 +97,11 @@
 #define TYPE_X06 0x0006
 
 
-/*
+/* Unknown. Found with Bjoern. */
+#define TYPE_X07 0x0007
+
+ 
+ /*
  * Strange message. (Receipt?)
  * Starts with a 4-byte uin, followed by a 2-byte
  * message length. Then follows the message string
@@ -171,7 +177,7 @@ struct startfields {
 	__int32 uin;
 	__int16 length;
 	char *string;
-	__int32 junk1;
+	__int32 status;
 	__int32 destination;
 	__int16 protocolversion;
 	__int32 date;
@@ -179,6 +185,17 @@ struct startfields {
 	__int8 junk2;
 	__int32 junk3;
 };
+
+/* The format of the statusfield is mostly unknown 
+ * but I have gathered the following data:
+ *
+ * -1 (0xFFFFFFFF) Recived message ok.
+ * 0 = Sent message arrived ok.
+ * 4 = Receiver was "away"
+ * 6 = No contact with receiver.
+ * 7 = User has canceled the chat request before you answered it.
+ *
+ */
 
 struct endfields {
 	__int32 junk1;
