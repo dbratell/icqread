@@ -6,6 +6,8 @@
 
 #include "people.h"
 
+#define MAXLOAD (0.7)
+
 struct people_array {
 	int size;
 	struct people **array;
@@ -16,6 +18,7 @@ void people_free(struct people *p);
 
 struct people **people_db=NULL;
 int people_db_size;
+int people_db_used;
 
 void people_init(int size)
 {
@@ -28,6 +31,7 @@ void people_init(int size)
 	assert(people_db);
 
 	people_db_size = size;
+	people_db_used = 0;
 
 	memset((void *)people_db, 0, size * sizeof(struct people*));
 }
@@ -108,6 +112,11 @@ void people_add(int uin, unsigned char *nick, unsigned char *name, unsigned char
 	int hash, count=0;
 
 	struct people *p;
+
+	if((double)((double)people_db_used/(double)people_db_size)>MAXLOAD) {
+		people_db_expand();
+	}
+
 	p = malloc(sizeof(struct people));
 	assert(p);
 	memset(p, 0, sizeof(struct people));
@@ -158,11 +167,13 @@ void people_add(int uin, unsigned char *nick, unsigned char *name, unsigned char
 			 */
 			hash = uin % people_db_size;
 			while(people_db[hash] != NULL) hash++;
+			people_db_used++;
 			people_db[hash] = p;
 			return;
 		}
 	}
 	/* There was room for this person */
+	people_db_used++;
 	people_db[hash] = p;
 	return;
 }
