@@ -1,5 +1,5 @@
 /*
- * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.11 1998/04/26 09:54:13 bratell Exp $
+ * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.12 1998/04/28 19:21:11 bratell Exp $
  * 
  */
 
@@ -12,9 +12,26 @@
 #include "ICQread.h"
 #include "people.h"
 
+#define NR_OF_YEARS 300 /* From 1900 to 2200, should be enough */
 int count = 0;
+int date_distribution[NR_OF_YEARS][12];
 
 int LOGLEVEL = 6;
+
+char *month_string[] = {
+		"January  ",
+		"February ",
+		"Mars     ",
+		"April    ",
+		"May      ",
+		"June     ",
+		"July     ",
+		"August   ",
+		"September",
+		"October  ",
+		"November ",
+		"December "
+};
 
 char *typelabel[] = {
 		"X0: Not used(?)",
@@ -40,6 +57,25 @@ char *typelabel[] = {
 };
 
 struct people *get_people(int uin);
+
+void printdate_distribution()
+{
+	int year;
+	int month;
+	for(year=0; year<NR_OF_YEARS; year++) {
+		for(month=0; month<12; month++) {
+			if(date_distribution[year][month] != 0)
+			{
+				printf("%s %d: %7d messages\n", 
+					month_string[month], 
+					year+1900,
+					date_distribution[year][month]);
+			} else {
+				/* No messages. Don't print anything */
+			}
+		}
+	}
+}
 
 void printstatus(int type, int status)
 {
@@ -191,6 +227,11 @@ void printheader(int type, struct startfields *sf)
 	}
 
 	t = localtime(&sf->date);
+
+	if(t != NULL) {
+		date_distribution[t->tm_year][t->tm_mon]++;
+	}
+
 	if(t != NULL) {
 		if(LOGLEVEL>5) printf("Time: %s", asctime(t));
 	} else {
@@ -902,6 +943,10 @@ int main(int argc, char *argv[])
 	printf("Using loglevel of %d.\n", LOGLEVEL);
 		
 
+	/* Clear the date_distribution */
+	memset(date_distribution, 0, 
+		sizeof(date_distribution[0][0])*NR_OF_YEARS*12);
+	
 	/* init people database */
 	/* It may not be full since the program will crash if
 	 * it is.
@@ -912,6 +957,8 @@ int main(int argc, char *argv[])
 	readfile(datafil);
 	people_print_info();
 	people_release();
+
+	printdate_distribution();
 
 	return 0;
 }
