@@ -1,5 +1,5 @@
 /*
- * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.21 1998/08/30 13:48:35 bratell Exp $
+ * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.22 1998/10/06 13:12:26 Bratell Exp $
  * 
  */
 
@@ -865,7 +865,7 @@ void readfile(FILE *datafil)
 		 * format as the ones I looked into.
 		 */
 		while(((*data16 < INTRO_V72) ||
-			(*data16 > INTRO_V9D)) &&
+			(*data16 > INTRO_VA0)) &&
 			(!feof(datafil))) {
 			printf("Couldn't find header. Could be newer or older version than previous met (%x).\n", *data16);
 
@@ -886,7 +886,8 @@ void readfile(FILE *datafil)
 			(*data16 != INTRO_V97) && 
 			(*data16 != INTRO_V98) &&
 			(*data16 != INTRO_V9C) &&
-			(*data16 != INTRO_V9D)) {
+			(*data16 != INTRO_V9D) &&
+			(*data16 != INTRO_VA0)) {
 			printf("Didn't recognize version (%x). Assuming similarities with other versions\n", *data16);
 		}
 		

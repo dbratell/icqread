@@ -52,6 +52,7 @@ unsigned char *typelabel[] = {
 #define INTRO_V98 0x0098
 #define INTRO_V9C 0x009C
 #define INTRO_V9D 0x009D
+#define INTRO_VA0 0x00A0 // DLL version 1.30
 
 /*
  * Incoming (and outgoing?) message.
