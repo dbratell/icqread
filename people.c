@@ -206,7 +206,7 @@ void people_print_info()
 		}
 	}
 
-	printf("\nTotal sent: %d (%d words)\nTotal received: %d (%dwords)\n", 
+	printf("\nTotal sent: %d  (%d words)\nTotal received: %d  (%d words)\n\n", 
 		total_sent_mess, total_sent_words,
 		total_received_mess, total_received_words);
 }

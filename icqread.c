@@ -1,5 +1,5 @@
 /*
- * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.13 1998/05/01 21:10:42 bratell Exp $
+ * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.14 1998/05/01 21:40:25 bratell Exp $
  * 
  */
 
@@ -22,7 +22,48 @@ int date_distribution[NR_OF_YEARS][12];
 int LOGLEVEL = 6;
 
 
+unsigned char *make_temp_copy(unsigned char *org_filename, int make_and_not_remove);
 struct people *get_people(int uin);
+
+FILE *open_data_file(unsigned char *filename)
+{
+	unsigned char *tempfilename;
+	int use_temp;
+	FILE *datafil;
+
+	tempfilename = make_temp_copy(filename, TRUE);
+	if(!tempfilename) {
+		/* Couldn't make temporary copy!
+		 * use ordinary file
+		 */
+		use_temp = FALSE;
+	} else {
+		use_temp = TRUE;
+	}
+
+	/* Open datafile in readonly binary mode. */
+	if(use_temp) {
+		datafil = fopen(tempfilename, "rb");
+	} else {
+		datafil = fopen(filename, "rb");
+	}
+	if(datafil==NULL) {
+		if(use_temp) {
+			perror(tempfilename);
+			make_temp_copy(tempfilename, FALSE);
+		} else {
+			perror(filename);
+		}
+		return NULL;
+	}
+
+	if(!use_temp) {
+		fprintf(stderr, "Making temporary copy failed, thus working on\noriginal history file. I don't think that should\nbe a problem but I don't guarantee anything!\n");
+	}
+
+	return datafil;
+}
+
 
 #ifdef WIN32
 void print_win32_error(unsigned char *details)
@@ -74,7 +115,7 @@ unsigned char *make_temp_copy(unsigned char *org_filename, int make_and_not_remo
 				return tempfilename;
 			}
 		} else {
-			printf("Not removed since it wasn't created\n");
+			/* Do nothing since there is nothing to remove */
 			return NULL;
 		}
 	}
@@ -106,7 +147,7 @@ unsigned char *make_temp_copy(unsigned char *org_filename, int make_and_not_remo
 	if(res == 0) {
 		/* Failed */
 		DeleteFile(tempfilename);
-		print_win32_error("When accessing historyfile to make safety copy of it");
+		/* print_win32_error("When accessing historyfile to make safety copy of it"); */
 		return NULL;
 	}
 
@@ -913,27 +954,17 @@ int main(int argc, char *argv[])
 
 	FILE *datafil;
 
-	unsigned char *tempfilename;
-
 	if(argc<2 || argc >3) {
 		usage();
 		exit(1);
 	}
 
-	tempfilename = make_temp_copy(argv[1], TRUE);
-	if(!tempfilename) {
-		exit(1);
-	}
-
-	/* Open datafile in readonly binary mode. */
-	datafil = fopen(tempfilename, "rb");
+	datafil = open_data_file(argv[1]);
 	if(datafil==NULL) {
-		perror(tempfilename);
-		make_temp_copy(tempfilename, FALSE);
 		exit(1);
 	}
 
-	printf("Öppnade datafil\n");
+	/* printf("Öppnade datafil\n"); */
 
 	if(argc==3) {
 		loglevel=atoi(argv[2]);
@@ -959,7 +990,7 @@ int main(int argc, char *argv[])
 	readfile(datafil);
 	
 	fclose(datafil);
-	make_temp_copy(tempfilename, FALSE);
+	make_temp_copy(NULL, FALSE);
 
 	people_print_info();
 	people_release();
