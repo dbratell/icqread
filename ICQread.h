@@ -2,7 +2,10 @@
 #define FALSE 0
 
 
-#define INTRO_V2 0x0072
+#define INTRO_V72 0x0072
+#define INTRO_V73 0x0073
+#define INTRO_V74 0x0074
+#define INTRO_V96 0x0096
 
 /*
  * Incoming (and outgoing?) message.
@@ -10,12 +13,57 @@
  * message length. Then follows the message string
  * and 10 bytes of unknown content. Then the date
  * and 4 more bytes of unknown content.
+ *
+ * In V96 there seems to be 5 more bytes at the end.
+ * Strange odd number.
  */
 #define TYPE_X01 0x0001
 
+/*
+ * Incoming (and outgoing?) message. (this number too?)
+ * Starts with a 4-byte uin, followed by a 2-byte
+ * message length. Then follows the message string
+ * and 10 bytes of unknown content. Then the date
+ * and another length of 2 bytes followed by a new
+ * string of that length. Finally there are 4 more 
+ * bytes of unknown content.
+ */
+#define TYPE_X02 0x0002
  
  
- /* "Asked for authorization"
+/*
+ * Incoming (and outgoing?) file.
+ * Starts with a 4-byte uin, followed by a 2-byte
+ * message length. Then follows the message string 
+ * containing the description of the file.
+ * Then there are 10 bytes of unknown content
+ * followed by the 4 byte date and another length. 
+ * Then there is a string (filename) of the the specified
+ * length. Then there are 4 bytes which could be the 
+ * filelength. 
+ * Then there are another 2-byte length and a string
+ * of that length. 
+ * And last there are 4 bytes of unknown content.
+ */
+#define TYPE_X03 0x0003
+
+ 
+ 
+ /*
+ * Incoming (and outgoing?) URL.
+ * Starts with a 4-byte uin, followed by a 2-byte
+ * message length. Then follows the message string
+ * and 10 bytes of unknown content. Then the date
+ * and 4 more bytes of unknown content.
+ *
+ * In V96 there seems to be 5 more bytes at the end.
+ * Strange odd number.
+ */
+#define TYPE_X04 0x0004
+
+ 
+ 
+/* "Asked for authorization"
  * It's an uin (4 bytes) and then maybe
  * the length (2 bytes).
  * The string consists of info of self.
@@ -53,7 +101,21 @@
  */
 #define TYPE_X09 0x0009
 
+
 /*
+ * External program.
+ * First 4-byte uin. Then a length of a string and
+ * that string (reason given). Then there are 
+ * 10 unknown bytes and a 4 byte date. After that
+ * there are a second length and string which is 
+ * the program to be run. Last there are 14 unknown
+ * bytes.
+ */
+#define TYPE_X0A 0x000A
+ 
+
+ 
+ /*
  * "User asked to be added"
  * Consists of an uin (4 bytes). A length (2 bytes)
  * and a string of that length, followed by 10 strange
@@ -70,3 +132,17 @@
  * undefined bytes.
  */
 #define TYPE_X0C 0x000C
+
+
+
+struct startfields {
+	__int32 uin;
+	__int16 length;
+	char *string;
+};
+
+struct endfields {
+	__int32 junk1;
+	__int8 junk2;
+	__int32 junk3;
+};
