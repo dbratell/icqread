@@ -30,17 +30,21 @@ void readend(FILE *datafil, int version, struct endfields *se)
 {
 	fread(&(se->junk1), 4, 1, datafil);
 	count +=4;
+}
 
+void readv96data(FILE *datafil, int version, struct v96data *vd)
+{
 	if(version >= INTRO_V96) {
-		fread(&(se->junk2), 1, 1, datafil);
+		fread(&(vd->junk1), 1, 1, datafil);
 		count +=1;
-		fread(&(se->junk3), 4, 1, datafil);
+		fread(&(vd->junk2), 4, 1, datafil);
 		count +=4;
 	} else {
-		se->junk2 = 0;
-		se->junk3 = 0;
+		vd->junk1 = 0;
+		vd->junk2 = 0;
 	}
 }
+
 
 /* Handle messages of type 1 (read ICQread.h for more
  * information.
@@ -49,29 +53,14 @@ void handle_x01(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-/*	__int32 uin;
-	__int16 length; */
+	struct v96data vd;
 
 	__int32 date;
 	struct tm *newtime;
 
 	__int32 junk1, junk2;
-/*  __int32 junk4, junk6; */
 	__int16 junk3;
-/*	__int8 junk5; */
 
-/*	char *data_string; 
-	fread(&uin, 4, 1, datafil);
-	count +=4;
-	fread(&length, 2, 1, datafil);
-	count +=2;
-
-	data_string = malloc(length);
-	assert(data_string);
-	fread(data_string, length, 1, datafil);
-	count +=length;
-
-  */
 	readstart(datafil, version, &sf);
 
 	fread(&junk1, 4, 1, datafil);
@@ -86,17 +75,7 @@ void handle_x01(FILE *datafil, int version)
 	newtime = localtime(&date);
 
 	readend(datafil, version, &se);
-/*	fread(&junk4, 4, 1, datafil);
-	count +=4;
-
-	if(version >= INTRO_V96) {
-		fread(&junk5, 1, 1, datafil);
-		count +=1;
-		fread(&junk6, 4, 1, datafil);
-		count +=4;
-	}
-*/
-
+	readv96data(datafil, version, &vd);
 
 	printf("Message X01 (Incoming (outgoing?) message)\nuin: %d,  length = %d\nText: '%s'\n", 
 		sf.uin, sf.length,sf.string);
@@ -108,12 +87,6 @@ void handle_x01(FILE *datafil, int version)
 		printf("tid: %s", asctime(newtime));
 	} else {
 		printf("tid: <skum tid: %x>", date);
-	}
-	printf("junk4: %x\n", se.junk1);
-
-	if(version >= INTRO_V96) {
-		printf("junk5: %x\n", se.junk2);
-		printf("junk6: %x\n", se.junk3);
 	}
 
 	printf("\n");
@@ -129,32 +102,23 @@ void handle_x01(FILE *datafil, int version)
 /* Handle messages of type 2 (read ICQread.h for more
  * information.
  */
-void handle_x02(FILE *datafil)
+void handle_x02(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	__int32 uin;
-	__int16 length1, length2;
+	struct v96data vd;
+
+	__int16 length2;
 
 	__int32 date;
 	struct tm *newtime;
 
-	__int32 junk1, junk2, junk4;
+	__int32 junk1, junk2;
 	__int16 junk3;
 
-	char *data_string1, *data_string2;
+	char *data_string2;
 
-	
-
-	fread(&uin, 4, 1, datafil);
-	count +=4;
-	fread(&length1, 2, 1, datafil);
-	count +=2;
-
-	data_string1 = malloc(length1);
-	assert(data_string1);
-	fread(data_string1, length1, 1, datafil);
-	count +=length1;
+	readstart(datafil, version, &sf);
 
 	fread(&junk1, 4, 1, datafil);
 	count +=4;
@@ -164,6 +128,7 @@ void handle_x02(FILE *datafil)
 	count +=2;
 
 	fread(&date,4,1,datafil);
+	readv96data(datafil, version, &vd);
 	count +=4;
 	newtime = localtime(&date);
 
@@ -175,11 +140,10 @@ void handle_x02(FILE *datafil)
 	fread(data_string2, length2, 1, datafil);
 	count +=length2;
 
-	fread(&junk4, 4, 1, datafil);
-	count +=4;
+	readend(datafil, version, &se);
 
 	printf("Message X02 (Outgoing (Incoming?) chat request)\nuin: %d,  length = %d\nReason given: %s\n", 
-		uin, length1,data_string1);
+		sf.uin, sf.length,sf.string);
 
 	printf("junk1: %x\n", junk1);
 	printf("junk2: %x\n", junk2);
@@ -192,10 +156,9 @@ void handle_x02(FILE *datafil)
 	printf("Other people?\nLength = %d\nString: '%s'\n", 
 		length2,data_string2);
 
-	printf("junk4: %x\n", junk4);
 	printf("\n");
 
-	free(data_string1);
+	free(sf.string);
 	free(data_string2);
 
 	return;
@@ -206,30 +169,24 @@ void handle_x02(FILE *datafil)
 /* Handle messages of type 3 (read ICQread.h for more
  * information.
  */
-void handle_x03(FILE *datafil)
+void handle_x03(FILE *datafil, int version)
 {
 	struct startfields sf;
-	struct endfields se;
-	__int32 uin;
-	__int16 length1, length2, length3;
+	struct endfields se; 
+	struct v96data vd;
+
+	__int16 length2, length3;
 
 	__int32 date;
 	struct tm *newtime;
 
 	__int32 filelength; /* (?) */
-	__int32 junk1, junk2, junk4;
+	__int32 junk1, junk2;
 	__int16 junk3;
 
-	char *data_string1, *data_string2, *data_string3;
-	fread(&uin, 4, 1, datafil);
-	count +=4;
-	fread(&length1, 2, 1, datafil);
-	count +=2;
+	char *data_string2, *data_string3;
 
-	data_string1 = malloc(length1);
-	assert(data_string1);
-	fread(data_string1, length1, 1, datafil);
-	count +=length1;
+	readstart(datafil, version, &sf);
 
 	fread(&junk1, 4, 1, datafil);
 	count +=4;
@@ -241,6 +198,8 @@ void handle_x03(FILE *datafil)
 	fread(&date,4,1,datafil);
 	count +=4;
 	newtime = localtime(&date);
+
+	readv96data(datafil, version, &vd);
 
 	fread(&length2, 2, 1, datafil);
 	count +=2;
@@ -267,11 +226,10 @@ void handle_x03(FILE *datafil)
 		data_string3 = NULL;
 	}
 
-	fread(&junk4, 4, 1, datafil);
-	count +=4;
+	readend(datafil, version, &se);
 
 	printf("Message X03 (Outgoing (Incoming?) file)\nuin: %d,  length = %d\nDescription: %s\n", 
-		uin, length1,data_string1);
+		sf.uin, sf.length,sf.string);
 
 	printf("junk1: %x\n", junk1);
 	printf("junk2: %x\n", junk2);
@@ -290,10 +248,9 @@ void handle_x03(FILE *datafil)
 	} else {
 		printf("Empty response(?).\n");
 	}
-	printf("junk4: %x\n", junk4);
 	printf("\n");
 
-	free(data_string1);
+	free(sf.string);
 	free(data_string2);
 	if(data_string3) free(data_string3);
 
@@ -304,30 +261,20 @@ void handle_x03(FILE *datafil)
 /* Handle messages of type 4 (read ICQread.h for more
  * information.
  */
-void handle_x04(FILE *datafil)
+void handle_x04(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	__int32 uin;
-	__int16 length;
+	struct v96data vd;
 
 	__int32 date;
 	struct tm *newtime;
 
-	__int32 junk1, junk2, junk4;
+	__int32 junk1, junk2;
 	__int16 junk3;
 
-	char *data_string;
-	fread(&uin, 4, 1, datafil);
-	count +=4;
-	fread(&length, 2, 1, datafil);
-	count +=2;
-
-	data_string = malloc(length);
-	assert(data_string);
-	fread(data_string, length, 1, datafil);
-	count +=length;
-
+	readstart(datafil, version, &sf);
+	
 	fread(&junk1, 4, 1, datafil);
 	count +=4;
 	fread(&junk2, 4, 1, datafil);
@@ -339,12 +286,11 @@ void handle_x04(FILE *datafil)
 	count +=4;
 	newtime = localtime(&date);
 
-
-	fread(&junk4, 4, 1, datafil);
-	count +=4;
+	readend(datafil, version, &se);
+	readv96data(datafil, version, &vd);
 
 	printf("Message X04 (Incoming (outgoing?) URL)\nuin: %d,  length = %d\nDescription and URL: '%s'\n", 
-		uin, length,data_string);
+		sf.uin, sf.length, sf.string);
 
 	printf("junk1: %x\n", junk1);
 	printf("junk2: %x\n", junk2);
@@ -354,10 +300,9 @@ void handle_x04(FILE *datafil)
 	} else {
 		printf("tid: <skum tid: %x>", date);
 	}
-	printf("junk4: %x\n", junk4);
 	printf("\n");
 
-	free(data_string);
+	free(sf.string);
 
 	return;
 }
@@ -367,29 +312,19 @@ void handle_x04(FILE *datafil)
 /* Handle messages of type 6 (read ICQread.h for more
  * information.
  */
-void handle_x06(FILE *datafil)
+void handle_x06(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	__int32 uin;
-	__int16 length;
+	struct v96data vd;
 
 	__int32 date;
 	struct tm *newtime;
 
-	__int32 junk1, junk2, junk4;
+	__int32 junk1, junk2;
 	__int16 junk3;
 
-	char *data_string;
-	fread(&uin, 4, 1, datafil);
-	count +=4;
-	fread(&length, 2, 1, datafil);
-	count +=2;
-
-	data_string = malloc(length);
-	assert(data_string);
-	fread(data_string, length, 1, datafil);
-	count +=length;
+	readstart(datafil, version, &sf);
 
 	fread(&junk1, 4, 1, datafil);
 	count +=4;
@@ -402,12 +337,11 @@ void handle_x06(FILE *datafil)
 	count +=4;
 	newtime = localtime(&date);
 
-
-	fread(&junk4, 4, 1, datafil);
-	count +=4;
+	readend(datafil, version, &se);
+	readv96data(datafil, version, &vd);
 
 	printf("Message X06(Asked for authorization)\nuin: %d,  length = %d\nString: %s\n", 
-		uin, length,data_string);
+		sf.uin, sf.length, sf.string);
 
 	printf("junk1: %x\n", junk1);
 	printf("junk2: %x\n", junk2);
@@ -417,10 +351,9 @@ void handle_x06(FILE *datafil)
 	} else {
 		printf("tid: <skum tid: %x>", date);
 	}
-	printf("junk4: %x\n", junk4);
 	printf("\n");
 
-	free(data_string);
+	free(sf.string);
 
 	return;
 }
@@ -428,29 +361,19 @@ void handle_x06(FILE *datafil)
 /* Handle messages of type 8 (read ICQread.h for more
  * information.
  */
-void handle_x08(FILE *datafil)
+void handle_x08(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	__int32 uin;
-	__int16 length;
-	char *data_string;
+	struct v96data vd;
 
 	__int32 date;
 	struct tm *newtime;
 
-	__int32 junk1, junk2, junk4;
+	__int32 junk1, junk2;
 	__int16 junk3;
 
-	fread(&uin, 4, 1, datafil);
-	count +=4;
-	fread(&length, 2, 1, datafil);
-	count +=2;
-
-	data_string = malloc(length);
-	assert(data_string);
-	fread(data_string, length, 1, datafil);
-	count +=length;
+	readstart(datafil, version, &sf);
 
 	fread(&junk1, 4, 1, datafil);
 	count +=4;
@@ -463,12 +386,11 @@ void handle_x08(FILE *datafil)
 	count +=4;
 	newtime = localtime(&date);
 
-
-	fread(&junk4, 4, 1, datafil);
-	count +=4;
+	readend(datafil, version, &se);
+	readv96data(datafil, version, &vd);
 
 	printf("Message X08 (Receipt?)\nuin: %d,  length = %d\nString: %s\n", 
-		uin, length,data_string);
+		sf.uin, sf.length, sf.string);
 
 	printf("junk1: %x\n", junk1);
 	printf("junk2: %x\n", junk2);
@@ -478,39 +400,28 @@ void handle_x08(FILE *datafil)
 	} else {
 		printf("tid: <skum tid: %x>", date);
 	}
-	printf("junk4: %x\n", junk4);
 	printf("\n");
 	
-	free(data_string);
+	free(sf.string);
 	return;
 }
 
 /* Handle messages of type 9 (read ICQread.h for more
  * information.
  */
-void handle_x09(FILE *datafil)
+void handle_x09(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	__int32 uin;
-	__int16 length;
+	struct v96data vd;
 
 	__int32 date;
 	struct tm *newtime;
 
-	__int32 junk1, junk2, junk4;
+	__int32 junk1, junk2;
 	__int16 junk3;
 
-	char *data_string;
-	fread(&uin, 4, 1, datafil);
-	count +=4;
-	fread(&length, 2, 1, datafil);
-	count +=2;
-
-	data_string = malloc(length);
-	assert(data_string);
-	fread(data_string, length, 1, datafil);
-	count +=length;
+	readstart(datafil, version, &sf);
 
 	fread(&junk1, 4, 1, datafil);
 	count +=4;
@@ -523,12 +434,11 @@ void handle_x09(FILE *datafil)
 	count +=4;
 	newtime = localtime(&date);
 
-
-	fread(&junk4, 4, 1, datafil);
-	count +=4;
+	readend(datafil, version, &se);
+	readv96data(datafil, version, &vd);
 
 	printf("Message X09 (Incoming System message)\nuin: %d,  length = %d\nString: %s\n", 
-		uin, length,data_string);
+		sf.uin, sf.length, sf.string);
 
 	printf("junk1: %x\n", junk1);
 	printf("junk2: %x\n", junk2);
@@ -538,10 +448,9 @@ void handle_x09(FILE *datafil)
 	} else {
 		printf("tid: <skum tid: %x>", date);
 	}
-	printf("junk4: %x\n", junk4);
 	printf("\n");
 
-	free(data_string);
+	free(sf.string);
 
 	return;
 }
@@ -550,29 +459,24 @@ void handle_x09(FILE *datafil)
 /* Handle messages of type 10 (read ICQread.h for more
  * information.
  */
-void handle_x0A(FILE *datafil)
+void handle_x0A(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	__int32 uin;
-	__int16 length1, length2;
+	struct v96data vd;
+
+	__int16 length2;
 
 	__int32 date;
 	struct tm *newtime;
 
-	__int32 junk1, junk2, junk4, junk5, junk6;
-	__int16 junk3, junk7;
+	__int32 junk1, junk2, junk4, junk5;
+	__int16 junk3, junk6;
 
-	char *data_string1, *data_string2;
-	fread(&uin, 4, 1, datafil);
-	count +=4;
-	fread(&length1, 2, 1, datafil);
-	count +=2;
 
-	data_string1 = malloc(length1);
-	assert(data_string1);
-	fread(data_string1, length1, 1, datafil);
-	count +=length1;
+	char *data_string2;
+
+	readstart(datafil, version, &sf);
 
 	fread(&junk1, 4, 1, datafil);
 	count +=4;
@@ -584,6 +488,8 @@ void handle_x0A(FILE *datafil)
 	fread(&date,4,1,datafil);
 	count +=4;
 	newtime = localtime(&date);
+
+	readv96data(datafil, version, &vd);
 
 	fread(&length2, 2, 1, datafil);
 	count +=2;
@@ -597,13 +503,13 @@ void handle_x0A(FILE *datafil)
 	count +=4;
 	fread(&junk5, 4, 1, datafil);
 	count +=4;
-	fread(&junk6, 4, 1, datafil);
-	count +=4;
-	fread(&junk7, 2, 1, datafil);
+	fread(&junk6, 2, 1, datafil);
 	count +=2;
 
+	readend(datafil, version, &se);
+
 	printf("Message X0A (External program)\nuin: %d,  length = %d\nReason given: %s\n", 
-		uin, length1,data_string1);
+		sf.uin, sf.length, sf.string);
 
 	printf("junk1: %x\n", junk1);
 	printf("junk2: %x\n", junk2);
@@ -619,10 +525,9 @@ void handle_x0A(FILE *datafil)
 	printf("junk4: %x\n", junk4);
 	printf("junk5: %x\n", junk5);
 	printf("junk6: %x\n", junk6);
-	printf("junk7: %x\n", junk7);
 	printf("\n");
 
-	free(data_string1);
+	free(sf.string);
 	free(data_string2);
 
 	return;
@@ -635,30 +540,19 @@ void handle_x0A(FILE *datafil)
 /* Handle messages of type 11 (read ICQread.h for more
  * information.
  */
-void handle_x0B(FILE *datafil)
+void handle_x0B(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	__int32 uin;
-	__int16 length;
+	struct v96data vd;
 
 	__int32 date;
 	struct tm *newtime;
 
-	__int32 junk1, junk2, junk4;
+	__int32 junk1, junk2;
 	__int16 junk3;
 
-	char *data_string;
-
-	fread(&uin, 4, 1, datafil);
-	count +=4;
-	fread(&length, 2, 1, datafil);
-	count +=2;
-
-	data_string = malloc(length);
-	assert(data_string);
-	fread(data_string, length, 1, datafil);
-	count +=length;
+	readstart(datafil, version, &sf);
 
 	fread(&junk1, 4, 1, datafil);
 	count +=4;
@@ -671,11 +565,11 @@ void handle_x0B(FILE *datafil)
 	count +=4;
 	newtime = localtime(&date);
 
-	fread(&junk4, 4, 1, datafil);
-	count +=4;
+	readend(datafil, version, &se);
+	readv96data(datafil, version, &vd);
 
 	printf("Message X0B (The user has asked to be added to your Contact List)\nuin: %d,  length = %d\nString: %s\n", 
-		uin, length,data_string);
+		sf.uin, sf.length,sf.string);
 
 	printf("junk1: %x\n", junk1);
 	printf("junk2: %x\n", junk2);
@@ -685,10 +579,9 @@ void handle_x0B(FILE *datafil)
 	} else {
 		printf("tid: <skum tid: %x>", date);
 	}
-	printf("junk4: %x\n", junk4);
 	printf("\n");
 
-	free(data_string);
+	free(sf.string);
 
 	return;
 }
@@ -696,30 +589,19 @@ void handle_x0B(FILE *datafil)
 /* Handle messages of type 12 (read ICQread.h for more
  * information.
  */
-void handle_x0C(FILE *datafil)
+void handle_x0C(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	__int32 uin;
-	__int16 length;
+	struct v96data vd;
 
 	__int32 date;
 	struct tm *newtime;
 
-	__int32 junk1, junk2, junk4;
+	__int32 junk1, junk2;
 	__int16 junk3;
 
-	char *data_string;
-
-	fread(&uin, 4, 1, datafil);
-	count +=4;
-	fread(&length, 2, 1, datafil);
-	count +=2;
-
-	data_string = malloc(length);
-	assert(data_string);
-	fread(data_string, length, 1, datafil);
-	count +=length;
+	readstart(datafil, version, &sf);
 
 	fread(&junk1, 4, 1, datafil);
 	count +=4;
@@ -733,11 +615,11 @@ void handle_x0C(FILE *datafil)
 	count +=4;
 	newtime = localtime(&date);
 
-	fread(&junk3, 4, 1, datafil);
-	count +=4;
+	readend(datafil, version, &se);
+	readv96data(datafil, version, &vd);
 
 	printf("Message X0C (You were added by)\nuin: %d,  length = %d\nString: %s\n", 
-		uin, length,data_string);
+		sf.uin, sf.length,sf.string);
 
 	printf("junk1: %x\n", junk1);
 	printf("junk2: %x\n", junk2);
@@ -747,52 +629,65 @@ void handle_x0C(FILE *datafil)
 	} else {
 		printf("tid: <skum tid: %x>", date);
 	}
-	printf("junk4: %x\n", junk4);
 	printf("\n");
 
-	free(data_string);
+	free(sf.string);
 
 	return;
 }
 
 
-void read_and_print_message(FILE *datafil)
+/* Handle messages of type 19 (read ICQread.h for more
+ * information.
+ */
+void handle_x13(FILE *datafil, int version)
 {
+	struct startfields sf;
+	struct endfields se;
+	struct v96data vd;
+
+	__int32 date;
 	struct tm *newtime;
 
-	int time;
-	int junk1;
-	int junk2;
-	int uin;
-	short length;
-	char *buffer;
+	__int32 junk1, junk2;
+	__int16 junk3;
 
-	/* Read time */
-	fread(&time,4,1,datafil);
-	count +=4;
-	newtime = localtime(&time);
+	readstart(datafil, version, &sf);
 
 	fread(&junk1, 4, 1, datafil);
 	count +=4;
 	fread(&junk2, 4, 1, datafil);
 	count +=4;
-	fread(&uin, 4, 1, datafil);
-	count +=4;
-	fread(&length, 2, 1, datafil);
+	fread(&junk3, 2, 1, datafil);
 	count +=2;
 
-	buffer = malloc(length);
-	assert(buffer);
 
-	fread(buffer, length, 1, datafil);
-	count +=length;
+	fread(&date,4,1,datafil);
+	count +=4;
+	newtime = localtime(&date);
 
-	printf("tid: %s", asctime(newtime));
-	printf("uin: %d\n", uin);
-	printf("Meddelande:\n%s\n", buffer);
+	readv96data(datafil, version, &vd);
+	readend(datafil, version, &se);
 
-	free(buffer);
+	printf("Message X13 (Contactlist)\nuin: %d,  length = %d\nString: %s\n", 
+		sf.uin, sf.length,sf.string);
+
+	printf("junk1: %x\n", junk1);
+	printf("junk2: %x\n", junk2);
+	printf("junk3: %x\n", junk3);
+	if(newtime != NULL) {
+		printf("tid: %s", asctime(newtime));
+	} else {
+		printf("tid: <skum tid: %x>", date);
+	}
+	printf("\n");
+
+	free(sf.string);
+
+	return;
 }
+
+
 
 int main(int argc, char *argv[])
 {
@@ -840,13 +735,17 @@ int main(int argc, char *argv[])
 		while((*data16 != INTRO_V72) && 
 			(*data16 != INTRO_V73) && 
 			(*data16 != INTRO_V74) && 
-			(*data16 != INTRO_V96)) {
+			(*data16 != INTRO_V96) && 
+			(*data16 != INTRO_V98) &&
+			(!feof(datafil))) {
 			printf("Searching for start\n");
 			buf[0]=buf[2];
 			buf[1]=buf[3];
 			fread(&buf[2], 2, 1, datafil);
 			count += 2;
 		}
+
+		if(feof(datafil)) return 0;
 
 		version = *data16;
 
@@ -863,39 +762,43 @@ int main(int argc, char *argv[])
 			break;
 
 		case TYPE_X02:
-			handle_x02(datafil);
+			handle_x02(datafil, version);
 			break;
 
 		case TYPE_X03:
-			handle_x03(datafil);
+			handle_x03(datafil, version);
 			break;
 
 		case TYPE_X04:
-			handle_x04(datafil);
+			handle_x04(datafil, version);
 			break;
 
 		case TYPE_X06:
-			handle_x06(datafil);
+			handle_x06(datafil, version);
 			break;
 
 		case TYPE_X08:
-			handle_x08(datafil);
+			handle_x08(datafil, version);
 			break;
 
 		case TYPE_X09:
-			handle_x09(datafil);
+			handle_x09(datafil, version);
 			break;
 
 		case TYPE_X0A:
-			handle_x0A(datafil);
+			handle_x0A(datafil, version);
 			break;
 
 		case TYPE_X0B:
-			handle_x0B(datafil);
+			handle_x0B(datafil, version);
 			break;
 
 		case TYPE_X0C:
-			handle_x0C(datafil);
+			handle_x0C(datafil, version);
+			break;
+
+		case TYPE_X13:
+			handle_x13(datafil, version);
 			break;
 
 		default:
@@ -907,39 +810,5 @@ int main(int argc, char *argv[])
 
 	return 0;
 
-	// Now we have read the intro
-	// Let's read what's coming up.
 
-
-
-	while(!feof(datafil))
-	{
-		buf[0]=buf[1];
-		buf[1]=buf[2];
-		buf[2]=buf[3];
-
-		fread(&buf[3], 1, 1, datafil);
-		count++;
-
-#ifdef DEBUG
-		printf("%d: data16: %04hx,\t data32 %08x\n", count, *data16, *data32);
-/*		fflush(stdout); */
-		
-		if(*data32==-1) {
-			printf("pip!\n");
-		}
-#endif
-		if(count>=4) {
-			if((*data32)==0x00720000) {
-				/* Message starting */
-				read_and_print_message(datafil);
-				/* Reset buffer */
-				fread(&buf[1], 3, 1, datafil);
-				count +=3;
-			}
-		}
-	}
-
-
-	return 0;
 }

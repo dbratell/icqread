@@ -6,6 +6,7 @@
 #define INTRO_V73 0x0073
 #define INTRO_V74 0x0074
 #define INTRO_V96 0x0096
+#define INTRO_V98 0x0098
 
 /*
  * Incoming (and outgoing?) message.
@@ -37,9 +38,11 @@
  * message length. Then follows the message string 
  * containing the description of the file.
  * Then there are 10 bytes of unknown content
- * followed by the 4 byte date and another length. 
+ * followed by the 4 byte date and 
+ * only in V96 and later 5 unknown bytes. Then there
+ * is another length. 
  * Then there is a string (filename) of the the specified
- * length. Then there are 4 bytes which could be the 
+ * length. Then there are 4 bytes which is the 
  * filelength. 
  * Then there are another 2-byte length and a string
  * of that length. 
@@ -106,7 +109,9 @@
  * External program.
  * First 4-byte uin. Then a length of a string and
  * that string (reason given). Then there are 
- * 10 unknown bytes and a 4 byte date. After that
+ * 10 unknown bytes and a 4 byte date. 
+ * In V96 there are 5 more unknown bytes there.
+ * After that
  * there are a second length and string which is 
  * the program to be run. Last there are 14 unknown
  * bytes.
@@ -134,6 +139,15 @@
 #define TYPE_X0C 0x000C
 
 
+/*
+ * Contact list
+ * Consists of an uin (4 bytes). A length (2 bytes)
+ * and a string of that length, followed by 10 strange
+ * bytes and then a date. And then finally 4 more
+ * undefined bytes. (V96+ 5 more bytes)
+ */
+#define TYPE_X13 0x0013
+
 
 struct startfields {
 	__int32 uin;
@@ -143,6 +157,9 @@ struct startfields {
 
 struct endfields {
 	__int32 junk1;
-	__int8 junk2;
-	__int32 junk3;
+};
+
+struct v96data {
+	__int8 junk1;
+	__int32 junk2;
 };
