@@ -1,5 +1,5 @@
 /*
- * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.15 1998/05/03 10:26:18 bratell Exp $
+ * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.16 1998/05/03 11:07:44 bratell Exp $
  * 
  */
 
@@ -772,11 +772,10 @@ void handle_mail(FILE *datafil, int version, struct startfields *sf)
 void handle_contactlist(FILE *datafil, int version, struct startfields *sf)
 {
 	struct endfields se;
-
 	struct people *p;
 
-	unsigned char *strpek;
-	int i, j;
+	unsigned char *strpek, *uin_string, *nick_string;
+	int i;
 	int nr_of_contacts;
 	int uin;
 
@@ -787,33 +786,33 @@ void handle_contactlist(FILE *datafil, int version, struct startfields *sf)
 	if(LOGLEVEL>3) printf("\n");
 
 
-	for(i=0; (unsigned char)sf->string[i]!=0xFE; i++);
+	/* Number of contacts */
+	strpek = get_nth_part(0,sf->string);
+	assert(strpek);
+	nr_of_contacts = atoi(strpek);
+	free(strpek);
 
-	sf->string[i]='\0';
-	
-	nr_of_contacts = atoi(sf->string);
-	strpek = &(sf->string[i+1]);
+	for(i=0; i<nr_of_contacts; i++) {
+		/* Read UIN */
+		uin_string = get_nth_part(2*i+1, sf->string);
+		assert(uin_string);
+		uin = atoi(uin_string);
+		free(uin_string);
 
-	for(j=0; j<nr_of_contacts; j++) {
-		/* Pick up UIN */
-		for(i=0; (unsigned char)strpek[i]!=0xFE; i++);
-		strpek[i]='\0';
-		uin = atoi(strpek);
-		strpek = &(strpek[i+1]);
-		/* Pick up nick */
-		for(i=0; (unsigned char)strpek[i]!=0xFE; i++);
-		strpek[i]='\0';
+		/* Read nick */
+		nick_string = get_nth_part(2*i+2, sf->string);
+		assert(nick_string);
 
 		/* Add to database */
 		p = get_people(uin);
 		/* See if we have a name yet */
 		if(strcmp(p->nick, UNKNOWN) == 0) {
-			/* No name yet. Let's add one */
-			people_add(uin, strpek, UNKNOWN, UNKNOWN);
+			/* No nickname yet. Let's add one */
+			people_add(uin, nick_string, p->name, p->email);
 		}
-		strpek = &(strpek[i+1]);
-	}
 
+		free(nick_string);
+	}
 	return;
 }
 
