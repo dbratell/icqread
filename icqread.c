@@ -1,5 +1,5 @@
 /*
- * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.16 1998/05/03 11:07:44 bratell Exp $
+ * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.17 1998/05/03 19:47:04 Bratell Exp $
  * 
  */
 
@@ -18,6 +18,8 @@
 #define NR_OF_YEARS 300 /* From 1900 to 2200, should be enough */
 int count = 0;
 int date_distribution[NR_OF_YEARS][12];
+
+int quit_program = FALSE;
 
 int LOGLEVEL = 6;
 
@@ -63,6 +65,23 @@ FILE *open_data_file(unsigned char *filename)
 
 	return datafil;
 }
+
+#ifdef WIN32
+/* Handler for CTRL-C events */
+BOOL breakhandler(DWORD fdwCtrlType)
+{
+	if(fdwCtrlType == CTRL_C_EVENT) {
+		quit_program = TRUE;
+		return TRUE;
+	}
+
+	/* It wasn't a CTRL-C so tell the system
+	 * we couldn't handle it.
+	 */
+	return FALSE;
+}	
+#endif
+
 
 
 #ifdef WIN32
@@ -134,7 +153,7 @@ unsigned char *make_temp_copy(unsigned char *org_filename, int make_and_not_remo
 		return NULL;
 	}
 	
-	res = GetTempFileName(tempdir, "icqread", 0, tempfilename);
+	res = GetTempFileName(tempdir, "~icqread", 0, tempfilename);
 
 	if(res == 0) {
 		/* Failed */
@@ -146,8 +165,8 @@ unsigned char *make_temp_copy(unsigned char *org_filename, int make_and_not_remo
 
 	if(res == 0) {
 		/* Failed */
-		DeleteFile(tempfilename);
 		/* print_win32_error("When accessing historyfile to make safety copy of it"); */
+		res = DeleteFile(tempfilename);
 		return NULL;
 	}
 
@@ -834,6 +853,8 @@ void readfile(FILE *datafil)
 	data16 = (__int16 *)&buf[2];
 
 	while(go_on) {
+		/* See if we are instructed to break */
+		if(quit_program) break;
 		if(LOGLEVEL>4) printf("-----------------------\n");
 		buf[0]=buf[2];
 		buf[1]=buf[3];
@@ -959,6 +980,15 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+#ifdef WIN32
+	/* Set handler for ctrl-C. */
+	SetConsoleCtrlHandler( 
+	    (PHANDLER_ROUTINE) breakhandler,  /* handler function */ 
+		TRUE);                           /* add to list      */ 
+	/* We don't check for success since everything (but the 
+	 * break handling) works even if it failed. 
+	 */
+#endif
 	datafil = open_data_file(argv[1]);
 	if(datafil==NULL) {
 		exit(1);
@@ -987,15 +1017,24 @@ int main(int argc, char *argv[])
 	people_init(313);
 
 	people_add(1, "System", "ICQ Server", "N/A");
-	readfile(datafil);
-	
+	if(!quit_program) {
+		readfile(datafil);
+	}
 	fclose(datafil);
+	datafil = NULL;
 	make_temp_copy(NULL, FALSE);
 
-	people_print_info();
+	if(!quit_program) {
+		people_print_info();
+	}
 	people_release();
 
-	printdate_distribution();
+	if(!quit_program) {
+		printdate_distribution();
+	} else {
+		fprintf(stderr, "**** ICQREAD BREAK *****\n");
+	}
+
 
 	return 0;
 }
