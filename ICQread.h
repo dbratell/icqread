@@ -1,10 +1,13 @@
 #define TRUE 1
 #define FALSE 0
 
+#define UNKNOWN "<unknown>"
+
 
 #define INTRO_V72 0x0072
 #define INTRO_V73 0x0073
 #define INTRO_V74 0x0074
+#define INTRO_V8B 0x008B
 #define INTRO_V96 0x0096
 #define INTRO_V98 0x0098
 #define INTRO_V9C 0x009C
@@ -16,7 +19,7 @@
  * and 10 bytes of unknown content. Then the date
  * and 4 more bytes of unknown content.
  *
- * In V96 there seems to be 5 more bytes at the end.
+ * In V96 (V8B?) there seems to be 5 more bytes at the end.
  * Strange odd number.
  */
 #define TYPE_X01 0x0001
@@ -46,7 +49,7 @@
  * containing the description of the file.
  * Then there are 10 bytes of unknown content
  * followed by the 4 byte date and 
- * only in V96 and later 5 unknown bytes. Then there
+ * only in V96 (V8B?) and later 5 unknown bytes. Then there
  * is another length. 
  * Then there is a string (filename) of the the specified
  * length. Then there are 4 bytes which is the 
@@ -66,7 +69,7 @@
  * and 10 bytes of unknown content. Then the date
  * and 4 more bytes of unknown content.
  *
- * In V96 there seems to be 5 more bytes at the end.
+ * In V96 (V8B?) there seems to be 5 more bytes at the end.
  * Strange odd number.
  */
 #define TYPE_X04 0x0004
@@ -117,7 +120,7 @@
  * First 4-byte uin. Then a length of a string and
  * that string (reason given). Then there are 
  * 10 unknown bytes and a 4 byte date. 
- * In V96 there are 5 more unknown bytes there.
+ * In V96 (V8B?) there are 5 more unknown bytes there.
  * After that
  * there are a second length and string which is 
  * the program to be run. Last there are 14 unknown
@@ -150,7 +153,7 @@
  * First uin (system = 1). 4 bytes.
  * Then length (2 bytes) and string if that length.
  * Then the normal 10 bytes and the date (4 bytes).
- * Then the v96-part and the final 4 bytes.
+ * Then the v96(V8B?)-part and the final 4 bytes.
  */
 #define TYPE_X0F 0x000F
 
@@ -159,7 +162,7 @@
  * Consists of an uin (4 bytes). A length (2 bytes)
  * and a string of that length, followed by 10 strange
  * bytes and then a date. And then finally 4 more
- * undefined bytes. (V96+ 5 more bytes)
+ * undefined bytes. (V96 (V8B?)+ 5 more bytes)
  */
 #define TYPE_X13 0x0013
 
@@ -172,6 +175,7 @@ struct startfields {
 	__int32 destination;
 	__int16 protocolversion;
 	__int32 date;
+	/* These two only in v96 (V8B?) and later */
 	__int8 junk2;
 	__int32 junk3;
 };
@@ -180,14 +184,7 @@ struct endfields {
 	__int32 junk1;
 };
 
-struct infofields {
-	__int32 junk1;
-	__int32 destination;
-	__int16 protocolversion;
-};
-
 struct textdata {
 	__int16 length;
 	char *string;
 };
-

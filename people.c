@@ -156,6 +156,11 @@ void people_print_info()
 	for(i=0; i<people_db_size; i++) {
 		if(people_db[i] != NULL) {
 			p = people_db[i];
+			if((p->number_of_messages_to == 0) && 
+				(p->number_of_messages_from== 0)) {
+				/* No activity. Don't display */
+				continue;
+			}
 			printf("Uin: %d\n", p->uin);
 			printf("Nick: %s\nName: %s\ne-Mail:%s\n",
 				p->nick, p->name, p->email);
@@ -165,12 +170,12 @@ void people_print_info()
 				t = localtime(&p->enddate);
 				if(t != NULL) {
 					printf("%.24s.\n", asctime(t));
-					timespan = p->enddate - p->startdate;
-					timespan = timespan / (24*60*60);
-					timespan +=1;
 				} else {
 					printf("now.\n");
 				}
+				timespan = time(NULL) - p->startdate;
+				timespan = timespan / (24*60*60);
+				timespan +=1;
 			} else {
 				t = localtime(&p->enddate);
 				if(t != NULL) {
@@ -181,7 +186,7 @@ void people_print_info()
 			}
 
 			if(timespan >0) {
-				printf("Sent messages:     %d \t(%.1f per day)\nReceived messages: %d \t(%.1f per day)\n",
+				printf("Sent messages:     %d \t(%.1f per day since first message)\nReceived messages: %d \t(%.1f per day since first message)\n",
 				p->number_of_messages_to, (float)p->number_of_messages_to/(float)timespan, 
 				p->number_of_messages_from, (float)p->number_of_messages_from/(float)timespan);
 			} else {

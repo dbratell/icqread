@@ -42,7 +42,9 @@ void printheader(int type, struct startfields *sf)
 
 	p = people_lookup(sf->uin);
 	if(p == NULL) {
-		name = "<unknown>";
+		name = UNKNOWN;
+		/* Insert in database as an empty uin */
+		people_add(sf->uin, UNKNOWN, UNKNOWN, UNKNOWN);
 	} else {
 		name = p->name;
 	}
@@ -188,13 +190,10 @@ void readstring(FILE *datafil, int version, struct textdata *td)
 
 void readstart(FILE *datafil, int version, struct startfields *sf)
 {
-	/*fread(&(sf->uin), 4, 1, datafil);
+	fread(&(sf->uin), 4, 1, datafil);
 	count +=4;
 	fread(&(sf->length), 2, 1, datafil);
 	count +=2;
-	*/
-	fread(sf, 6, 1, datafil);
-	count +=6;
 
 	if(sf->length>0) {
 		sf->string = malloc(sf->length);
@@ -205,29 +204,31 @@ void readstart(FILE *datafil, int version, struct startfields *sf)
 		sf->string = 0;
 	}
 
-/*	fread(&(sf->junk1), 4, 1, datafil);
+	fread(&(sf->junk1), 10, 1, datafil);
+	/*
+	fread(&(sf->junk1), 4, 1, datafil);
 	count +=4;
 	fread(&(sf->destination), 4, 1, datafil);
 	count +=4;
 	fread(&(sf->protocolversion), 2, 1, datafil);
 	count +=2;
 	*/
-	/* Couldn't read date too because of inalignment */
-	fread(&(sf->junk1), 10, 1, datafil);
-	count += 10;
+
+	/* Date can probably not be read directly with the 
+	 * others because of inalignment */
 
 	fread(&sf->date,4,1,datafil);
 	count +=4;
 	
 
-	if(version >= INTRO_V96) {
+	if(version >= INTRO_V8B) {
 		/*
 		fread(&(sf->junk2), 1, 1, datafil);
 		count +=1;
 		fread(&(sf->junk3), 4, 1, datafil);
 		count +=4;
 		*/
-		fread(&(sf->junk1), 5, 1, datafil);
+		fread(&(sf->junk2), 5, 1, datafil);
 		count += 5;
 
 	} else {
@@ -564,14 +565,57 @@ void handle_x13(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	
+
+	struct people *p;
+
+	char *strpek;
+	int i, j;
+	int nr_of_contacts;
+	int uin;
+
 	readstart(datafil, version, &sf);
 	readend(datafil, version, &se);
 
 	printheader(TYPE_X13, &sf);
 	if(LOGLEVEL>3) printf("\n");
 
+	if(LOGLEVEL>5) printf("Contacts:\n%s\n", sf.string);
+
+
+	for(i=0; (unsigned char)sf.string[i]!=0xFE; i++);
+
+	sf.string[i]='\0';
+	
+	nr_of_contacts = atoi(sf.string);
+	strpek = &(sf.string[i+1]);
+
+	for(j=0; j<nr_of_contacts; j++) {
+		/* Pick up UIN */
+		for(i=0; (unsigned char)strpek[i]!=0xFE; i++);
+		strpek[i]='\0';
+		uin = atoi(strpek);
+		strpek = &(strpek[i+1]);
+		/* Pick up nick */
+		for(i=0; (unsigned char)strpek[i]!=0xFE; i++);
+		strpek[i]='\0';
+
+		/* Add to database */
+		p = people_lookup(uin);
+		if(!p) {
+			/* Not in database yet */
+			people_add(uin, strpek, UNKNOWN, UNKNOWN);
+		} else {
+			/* See if we have a name yet */
+			if(strcmp(p->nick, UNKNOWN) == 0) {
+				/* No name */
+				people_add(uin, strpek, UNKNOWN, UNKNOWN);
+			}
+		}
+		strpek = &(strpek[i+1]);
+	}
+
 	free(sf.string);
+
 
 	return;
 }
@@ -603,6 +647,7 @@ void readfile(FILE *datafil)
 		while((*data16 != INTRO_V72) && 
 			(*data16 != INTRO_V73) && 
 			(*data16 != INTRO_V74) && 
+			(*data16 != INTRO_V8B) && 
 			(*data16 != INTRO_V96) && 
 			(*data16 != INTRO_V98) &&
 			(*data16 != INTRO_V9C) &&
@@ -698,7 +743,7 @@ int main(int argc, char *argv[])
 
 	/* Open datafile in readonly binary mode. */
 	datafil = fopen(argv[1], "rb");
-	if(!datafil) {
+	if(datafil==NULL) {
 		perror("Datafil");
 		exit(1);
 	}
@@ -715,7 +760,7 @@ int main(int argc, char *argv[])
 		
 
 	/* init people database */
-	people_init(113);
+	people_init(313);
 
 	people_add(1, "System", "ICQ System", "N/A");
 	readfile(datafil);
