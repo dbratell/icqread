@@ -7,6 +7,7 @@
 #define INTRO_V74 0x0074
 #define INTRO_V96 0x0096
 #define INTRO_V98 0x0098
+#define INTRO_V9C 0x009C
 
 /*
  * Incoming (and outgoing?) message.
@@ -21,7 +22,7 @@
 #define TYPE_X01 0x0001
 
 /*
- * Incoming (and outgoing?) message. (this number too?)
+ * Incoming (and outgoing?) chat.
  * Starts with a 4-byte uin, followed by a 2-byte
  * message length. Then follows the message string
  * and first 4 bytes of unknown content. They are
@@ -167,15 +168,16 @@ struct startfields {
 	__int32 uin;
 	__int16 length;
 	char *string;
+	__int32 junk1;
+	__int32 destination;
+	__int16 protocolversion;
+	__int32 date;
+	__int8 junk2;
+	__int32 junk3;
 };
 
 struct endfields {
 	__int32 junk1;
-};
-
-struct v96data {
-	__int8 junk1;
-	__int32 junk2;
 };
 
 struct infofields {

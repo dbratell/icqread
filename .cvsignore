@@ -1,0 +1,7 @@
+*.dsp
+*.dsw
+*.ncb
+*.opt
+*.plg
+Release
+Debug

@@ -11,51 +11,76 @@ int count = 0;
 
 int LOGLEVEL = 6;
 
-void printheader(char *type, int dest, int uin, int time)
+char *typelabel[] = {
+		"X0: Not used(?)",
+		"Message",
+		"Chat request",
+		"File",
+		"URL",
+		"X05: Not used(?)",
+		"'Asked for authorization'",
+		"X07: Not used(?)",
+		"Receipt (?)",
+		"System Message",
+		"External Program",
+		"'User asked to be added'",
+		"'You were added'",
+		"X0D: Not used(?)",
+		"X0E: Not used(?)",
+		"Mail",
+		"X10: Not used(?)",
+		"X11: Not used(?)",
+		"X12: Not used(?)",
+		"Contact list"
+};
+
+void printheader(int type, struct startfields *sf)
 {
 	struct people *p;
 	char *name;
 	struct tm *t;
 
-	p = people_lookup(uin);
+	p = people_lookup(sf->uin);
 	if(p == NULL) {
 		name = "<unknown>";
 	} else {
 		name = p->name;
 	}
 
-	if(dest == 1) {
+	if(sf->destination == 1) {
 		if(LOGLEVEL>3) printf("%s sent to %s\n", 
-			type, name);
+			typelabel[type], name);
 		if(p) {
 			p->number_of_messages_to++;
 		}
-	} else if(dest == 0) {
-		if(LOGLEVEL>3) printf("%s arrived from %s:\n", 
-			type, name);
+	} else if(sf->destination == 0) {
+		if(LOGLEVEL>3) printf("%s arrived from %s\n", 
+			typelabel[type], name);
 		if(p) {
 			p->number_of_messages_from++;
 		}
 	} else {
 		if(LOGLEVEL>2) printf("%s with unknown destination(%x) from %s\n",
-			type, dest, name);
+			typelabel[type], sf->destination, name);
 	}
 
 	if(p) {
-		p->enddate=time;
+		p->enddate=sf->date;
 		if(p->startdate == 0) {
-			p->startdate=time;
+			p->startdate=sf->date;
 		}
 	}
 
-	t = localtime(&time);
+	t = localtime(&sf->date);
 	if(t != NULL) {
 		if(LOGLEVEL>5) printf("Time: %s", asctime(t));
 	} else {
-		if(LOGLEVEL>5) printf("Time: <skum tid>\n");
+		if(LOGLEVEL>5) printf("Time: <illegal time>\n");
 	}
 
-	if(LOGLEVEL>6) printf("UIN: %d\n", uin);
+	if(LOGLEVEL>6) printf("UIN: %d\n", sf->uin);
+	if(LOGLEVEL>8) printf("protocol: %x\n", sf->protocolversion);
+	if(LOGLEVEL>8) printf("junk1: %x\n", sf->junk1);
 
 }
 
@@ -143,15 +168,6 @@ char *string2email(unsigned char *str)
 	return result;
 }
 
-int readdate(FILE *datafil, int version)
-{
-	__int32 date;
-
-	fread(&date,4,1,datafil);
-	count +=4;
-	return date;
-
-}
 
 void readstring(FILE *datafil, int version, struct textdata *td)
 {
@@ -172,10 +188,13 @@ void readstring(FILE *datafil, int version, struct textdata *td)
 
 void readstart(FILE *datafil, int version, struct startfields *sf)
 {
-	fread(&(sf->uin), 4, 1, datafil);
+	/*fread(&(sf->uin), 4, 1, datafil);
 	count +=4;
 	fread(&(sf->length), 2, 1, datafil);
 	count +=2;
+	*/
+	fread(sf, 6, 1, datafil);
+	count +=6;
 
 	if(sf->length>0) {
 		sf->string = malloc(sf->length);
@@ -185,36 +204,42 @@ void readstart(FILE *datafil, int version, struct startfields *sf)
 	} else {
 		sf->string = 0;
 	}
+
+/*	fread(&(sf->junk1), 4, 1, datafil);
+	count +=4;
+	fread(&(sf->destination), 4, 1, datafil);
+	count +=4;
+	fread(&(sf->protocolversion), 2, 1, datafil);
+	count +=2;
+	*/
+	/* Couldn't read date too because of inalignment */
+	fread(&(sf->junk1), 10, 1, datafil);
+	count += 10;
+
+	fread(&sf->date,4,1,datafil);
+	count +=4;
+	
+
+	if(version >= INTRO_V96) {
+		/*
+		fread(&(sf->junk2), 1, 1, datafil);
+		count +=1;
+		fread(&(sf->junk3), 4, 1, datafil);
+		count +=4;
+		*/
+		fread(&(sf->junk1), 5, 1, datafil);
+		count += 5;
+
+	} else {
+		sf->junk2 = 0;
+		sf->junk3 = 0;
+	}
 }
 
 void readend(FILE *datafil, int version, struct endfields *se)
 {
 	fread(&(se->junk1), 4, 1, datafil);
 	count +=4;
-}
-
-void readinfo(FILE *datafil, int version, struct infofields *info)
-{
-	fread(&(info->junk1), 4, 1, datafil);
-	count +=4;
-	fread(&(info->destination), 4, 1, datafil);
-	count +=4;
-	fread(&(info->protocolversion), 2, 1, datafil);
-	count +=2;
-}
-
-
-void readv96data(FILE *datafil, int version, struct v96data *vd)
-{
-	if(version >= INTRO_V96) {
-		fread(&(vd->junk1), 1, 1, datafil);
-		count +=1;
-		fread(&(vd->junk2), 4, 1, datafil);
-		count +=4;
-	} else {
-		vd->junk1 = 0;
-		vd->junk2 = 0;
-	}
 }
 
 
@@ -225,25 +250,14 @@ void handle_x01(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	struct infofields info;
-	struct v96data vd;
-
-	int newtime;
 
 	readstart(datafil, version, &sf);
 
-	readinfo(datafil, version, &info);
-	newtime = readdate(datafil, version);
-
-	readv96data(datafil, version, &vd);
 	readend(datafil, version, &se);
 
-	printheader("Message", info.destination, sf.uin, newtime);
+	printheader(TYPE_X01, &sf);
 
 	if(LOGLEVEL>5) printf("Text: '%s'\n", sf.string);
-
-	/* printf("junk1: %x\n", info.junk1); */
-	if(LOGLEVEL>8) printf("protocol: %x\n", info.protocolversion);
 
 	if(LOGLEVEL>3) printf("\n");
 
@@ -262,26 +276,18 @@ void handle_x02(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	struct infofields info;
-	struct v96data vd;
-	struct textdata people;
 
-	int newtime;
+	struct textdata people;
 
 	readstart(datafil, version, &sf);
 
-	readinfo(datafil, version, &info);
-
-	newtime = readdate(datafil, version);
-	readv96data(datafil, version, &vd);
 
 	readstring(datafil, version, &people);
 
 	readend(datafil, version, &se);
 
-	printheader("Chat request", info.destination, sf.uin, newtime);
+	printheader(TYPE_X02, &sf);
 
-	if(LOGLEVEL>8) printf("protocolversion: %x\n", info.protocolversion);
 	if(LOGLEVEL>5) printf("Other people?\nString: '%s'\n", 
 		people.string);
 
@@ -302,40 +308,25 @@ void handle_x03(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se; 
-	struct infofields info;
 	struct textdata filename;
 	struct textdata junkstring;
-	struct v96data vd;
-
-	int newtime;
+	
 
 	__int32 filelength;
 
 	readstart(datafil, version, &sf);
-
-	readinfo(datafil, version, &info);
-
-	newtime = readdate(datafil, version);
-
-	readv96data(datafil, version, &vd);
-
 	readstring(datafil, version, &filename);
-
 
 	fread(&filelength, 4, 1, datafil);
 	count +=4;
 
 	readstring(datafil, version, &junkstring);
-
 	readend(datafil, version, &se);
 
-	printheader("File", info.destination, sf.uin, newtime);
+	printheader(TYPE_X03, &sf);
 
-	/* printf("junk1: %x\n", info.junk1); */
-	if(LOGLEVEL>8) printf("protocolversion: %x\n", info.protocolversion);
 	if(LOGLEVEL>5) printf("File:\nName: '%s'\nSize : %d bytes\n", 
 		filename.string, filelength);
-
 	if(junkstring.length != 0) {
 		if(LOGLEVEL>6) printf("Response?:\nString:'%s'\n", 
 			junkstring.string);
@@ -359,24 +350,12 @@ void handle_x04(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	struct infofields info;
-	struct v96data vd;
-
-	int newtime;
+	
 
 	readstart(datafil, version, &sf);
-	
-	readinfo(datafil, version, &info);
-
-	newtime = readdate(datafil, version);
-
-	readv96data(datafil, version, &vd);
 	readend(datafil, version, &se);
 
-	printheader("URL", info.destination, sf.uin, newtime);
-
-	/* printf("junk1: %x\n", info.junk1); */
-	if(LOGLEVEL>8) printf("protocolversion: %x\n", info.protocolversion);
+	printheader(TYPE_X04, &sf);
 	if(LOGLEVEL>3) printf("\n");
 
 	free(sf.string);
@@ -393,24 +372,11 @@ void handle_x06(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	struct infofields info;
-	struct v96data vd;
-
-	int newtime;
-
+	
 	readstart(datafil, version, &sf);
-
-	readinfo(datafil, version, &info);
-
-	newtime = readdate(datafil, version);
-
-	readv96data(datafil, version, &vd);
 	readend(datafil, version, &se);
 
-	printheader("Authorization request", info.destination, sf.uin, newtime);
-
-	/* printf("junk1: %x\n", info.junk1); */
-	if(LOGLEVEL>8) printf("protocolversion: %x\n", info.protocolversion);
+	printheader(TYPE_X06, &sf);
 	if(LOGLEVEL>3) printf("\n");
 
 	free(sf.string);
@@ -425,23 +391,11 @@ void handle_x08(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	struct infofields info;
-	struct v96data vd;
-
-	int newtime;
-
+	
 	readstart(datafil, version, &sf);
-
-	readinfo(datafil, version, &info);
-
-	newtime = readdate(datafil, version);
-
-	readv96data(datafil, version, &vd);
 	readend(datafil, version, &se);
 
-	printheader("Message X08 (Receipt?)", info.destination, sf.uin, newtime);
-
-	if(LOGLEVEL>8) printf("protocolversion: %x\n", info.protocolversion);
+	printheader(TYPE_X08, &sf);
 	if(LOGLEVEL>3) printf("\n");
 	
 	free(sf.string);
@@ -455,24 +409,11 @@ void handle_x09(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	struct infofields info;
-	struct v96data vd;
-
-	int newtime;
-
+	
 	readstart(datafil, version, &sf);
-
-	readinfo(datafil, version, &info);
-
-	newtime = readdate(datafil, version);
-
-	readv96data(datafil, version, &vd);
 	readend(datafil, version, &se);
 
-	printheader("System Message", info.destination, sf.uin, newtime);
-
-	/* printf("junk1: %x\n", info.junk1); */
-	if(LOGLEVEL>8) printf("protocolversion: %x\n", info.protocolversion);
+	printheader(TYPE_X09, &sf);
 	if(LOGLEVEL>3) printf("\n");
 
 	free(sf.string);
@@ -488,45 +429,28 @@ void handle_x0A(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	struct infofields info;
 	struct textdata programname;
-	struct v96data vd;
-
-	int newtime;
-
+	
 	__int32 junk4, junk5;
 	__int16 junk6;
 
 
 	readstart(datafil, version, &sf);
-
-	readinfo(datafil, version, &info);
-
-	newtime = readdate(datafil, version);
-
-	readv96data(datafil, version, &vd);
-
 	readstring(datafil, version, &programname);
-
 	fread(&junk4, 4, 1, datafil);
 	count +=4;
 	fread(&junk5, 4, 1, datafil);
 	count +=4;
 	fread(&junk6, 2, 1, datafil);
 	count +=2;
-
 	readend(datafil, version, &se);
 
-	printheader("External program request", info.destination, sf.uin, newtime);
-
-	/* printf("junk1: %x\n", info.junk1); */
-	if(LOGLEVEL>8) printf("protocolversion: %x\n", info.protocolversion);
+	printheader(TYPE_X0A, &sf);
 	if(LOGLEVEL>5) printf("Program:\nString: '%s'\n", 
 		programname.string);
-
-	if(LOGLEVEL>9) printf("junk4: %x\n", junk4);
-	if(LOGLEVEL>9) printf("junk5: %x\n", junk5);
-	if(LOGLEVEL>9) printf("junk6: %x\n", junk6);
+	if(LOGLEVEL>8) printf("junk4: %x\n", junk4);
+	if(LOGLEVEL>8) printf("junk5: %x\n", junk5);
+	if(LOGLEVEL>8) printf("junk6: %x\n", junk6);
 	if(LOGLEVEL>3) printf("\n");
 
 	free(sf.string);
@@ -546,10 +470,6 @@ void handle_x0B(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	struct infofields info;
-	struct v96data vd;
-
-	int newtime;
 
 	char *nick;
 	char *name;
@@ -558,12 +478,6 @@ void handle_x0B(FILE *datafil, int version)
 	struct people *p;
 
 	readstart(datafil, version, &sf);
-
-	readinfo(datafil, version, &info);
-
-	newtime = readdate(datafil, version);
-
-	readv96data(datafil, version, &vd);
 	readend(datafil, version, &se);
 
 	nick = string2nick(sf.string);
@@ -577,10 +491,7 @@ void handle_x0B(FILE *datafil, int version)
 	p = people_lookup(sf.uin);
 	assert(p);
 
-	printheader("User asked to be added", info.destination, sf.uin, newtime);
-
-	/* printf("junk1: %x\n", info.junk1); */
-	if(LOGLEVEL>8) printf("protocolversion: %x\n", info.protocolversion);
+	printheader(TYPE_X0B, &sf);
 	if(LOGLEVEL>3) printf("\n");
 
 	free(sf.string);
@@ -595,10 +506,6 @@ void handle_x0C(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	struct infofields info;
-	struct v96data vd;
-
-	int newtime;
 
 	char *nick;
 	char *name;
@@ -607,13 +514,6 @@ void handle_x0C(FILE *datafil, int version)
 	struct people *p;
 
 	readstart(datafil, version, &sf);
-
-	readinfo(datafil, version, &info);
-
-
-	newtime = readdate(datafil, version);
-
-	readv96data(datafil, version, &vd);
 	readend(datafil, version, &se);
 
 	nick = string2nick(sf.string);
@@ -627,10 +527,7 @@ void handle_x0C(FILE *datafil, int version)
 	p = people_lookup(sf.uin);
 	assert(p);
 
-	printheader("You were added by", info.destination, sf.uin, newtime);
-
-	/* printf("junk1: %x\n", info.junk1); */
-	if(LOGLEVEL>8) printf("protocolversion: %x\n", info.protocolversion);
+	printheader(TYPE_X0C, &sf);
 	if(LOGLEVEL>3) printf("\n");
 
 	free(sf.string);
@@ -646,32 +543,18 @@ void handle_x0F(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	struct infofields info;
-	struct v96data vd;
-
-	int newtime;
+	
 
 	readstart(datafil, version, &sf);
-
-	readinfo(datafil, version, &info);
-
-	newtime = readdate(datafil, version);
-
-	readv96data(datafil, version, &vd);
 	readend(datafil, version, &se);
 
-	printheader("Mail", info.destination, sf.uin, newtime);
-
-	/* printf("junk1: %x\n", info.junk1); */
-	if(LOGLEVEL>8) printf("protocolversion: %x\n", info.protocolversion);
+	printheader(TYPE_X0F, &sf);
 	if(LOGLEVEL>3) printf("\n");
 
 	free(sf.string);
 
 	return;
 }
-
-
 
 
 /* Handle messages of type 19 (read ICQread.h for more
@@ -681,24 +564,11 @@ void handle_x13(FILE *datafil, int version)
 {
 	struct startfields sf;
 	struct endfields se;
-	struct infofields info;
-	struct v96data vd;
-
-	int newtime;
-
+	
 	readstart(datafil, version, &sf);
-
-	readinfo(datafil, version, &info);
-
-	newtime = readdate(datafil, version);
-
-	readv96data(datafil, version, &vd);
 	readend(datafil, version, &se);
 
-	printheader("Contact list", info.destination, sf.uin, newtime);
-
-	/* printf("junk1: %x\n", info.junk1); */
-	if(LOGLEVEL>8) printf("protocolversion: %x\n", info.protocolversion);
+	printheader(TYPE_X13, &sf);
 	if(LOGLEVEL>3) printf("\n");
 
 	free(sf.string);
@@ -722,7 +592,7 @@ void readfile(FILE *datafil)
 	data16 = (__int16 *)&buf[2];
 
 	while(go_on) {
-		if(LOGLEVEL>1) printf("-----------------------\n");
+		if(LOGLEVEL>4) printf("-----------------------\n");
 		buf[0]=buf[2];
 		buf[1]=buf[3];
 		fread(&buf[2], 2, 1, datafil);
@@ -735,8 +605,9 @@ void readfile(FILE *datafil)
 			(*data16 != INTRO_V74) && 
 			(*data16 != INTRO_V96) && 
 			(*data16 != INTRO_V98) &&
+			(*data16 != INTRO_V9C) &&
 			(!feof(datafil))) {
-			printf("Couldn't find header. Searching...\n");
+			printf("Couldn't find header. Found %x. Searching on...\n", *data16);
 			buf[0]=buf[2];
 			buf[1]=buf[3];
 			fread(&buf[2], 2, 1, datafil);
@@ -809,7 +680,6 @@ void readfile(FILE *datafil)
 			break;
 		}
 	}
-
 	return;
 
 }
@@ -817,7 +687,6 @@ void readfile(FILE *datafil)
 
 int main(int argc, char *argv[])
 {
-
 	int loglevel;
 
 	FILE *datafil;
@@ -846,17 +715,12 @@ int main(int argc, char *argv[])
 		
 
 	/* init people database */
-
-	people_init(67);
+	people_init(113);
 
 	people_add(1, "System", "ICQ System", "N/A");
-
 	readfile(datafil);
-
 	people_print_info();
-	
 	people_release();
 
 	return 0;
-
 }
