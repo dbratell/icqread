@@ -1,5 +1,5 @@
 /*
- * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.14 1998/05/01 21:40:25 bratell Exp $
+ * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.15 1998/05/03 10:26:18 bratell Exp $
  * 
  */
 
@@ -946,6 +946,7 @@ void usage()
 	printf("<filename> \tis the name of the historyfile to analyze. Normally it's you\n\t\tuin with msg.dat at the end. I recommend you working\n\t\ton a copy of the file since I haven't analyzed ICQ behaviour\n\t\twhen someone else is reading the file.\n");
 	printf("LOGLEVEL   \tcontrols how much information is shown. 1 gives only summary\n\t\tstatistics and 10 gives all info collected. You may try it\n\t\tout yourself.\n");
 	printf("\n");
+	printf("This version compiled %s %s\n\n", __DATE__, __TIME__);
 }
 
 int main(int argc, char *argv[])
