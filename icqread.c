@@ -1,5 +1,5 @@
 /*
- * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.19 1998/05/07 12:45:27 bratell Exp $
+ * $Header: /mnt/cistern/cvsroot/icqread/icqread.c,v 1.20 1998/05/09 09:35:03 bratell Exp $
  * 
  */
 
@@ -1054,10 +1054,8 @@ int main(int argc, char *argv[])
 		sizeof(date_distribution[0][0])*NR_OF_YEARS*12);
 	
 	/* init people database */
-	/* It must not become full since the program will crash if
-	 * it is.
-	 */
-	people_init(313);
+	/* Let's start with a small database and let it grow. */
+	people_init(3);
 
 	people_add(1, "System", "ICQ Server", "N/A");
 	if(!quit_program) {

@@ -69,6 +69,40 @@ void people_free(struct people *p)
 	}
 }
 
+void people_db_expand()
+{
+	int i;
+	struct people **new_people_db=NULL;
+	/* Hope this becomes a prime */
+	int new_people_db_size = people_db_size*2+1;
+	int hash, count=0;
+
+	new_people_db = malloc(new_people_db_size * sizeof(struct people*));
+	assert(new_people_db);
+
+	memset((void *)new_people_db, 0, new_people_db_size * sizeof(struct people*));
+
+	/* Rehash */
+	for(i=0; i<people_db_size; i++) {
+		if(people_db[i] != NULL) {
+			hash = people_db[i]->uin % new_people_db_size;
+			while(new_people_db[hash] != NULL) {
+				hash = (hash+1) % people_db_size;
+			}
+			/* Found room for this person */
+			new_people_db[hash] = people_db[i];
+		}
+	}
+
+	/* Everybody moved */
+
+	free(people_db);
+	people_db = new_people_db;
+	people_db_size = new_people_db_size;
+	return;
+}
+
+
 void people_add(int uin, unsigned char *nick, unsigned char *name, unsigned char *email)
 {
 	int hash, count=0;
@@ -76,6 +110,7 @@ void people_add(int uin, unsigned char *nick, unsigned char *name, unsigned char
 	struct people *p;
 	p = malloc(sizeof(struct people));
 	assert(p);
+	memset(p, 0, sizeof(struct people));
 
 	p->uin = uin;
 	p->nick = malloc(strlen(nick)+1);
@@ -89,14 +124,6 @@ void people_add(int uin, unsigned char *nick, unsigned char *name, unsigned char
 	p->email = malloc(strlen(email)+1);
 	assert(p->email);
 	strcpy(p->email, email);
-
-	p->startdate = 0;
-	p->enddate = 0;
-	p->number_of_messages_to=0;
-	p->number_of_messages_from=0;
-	p->number_of_words_to=0;
-	p->number_of_words_from=0;
-
 
 	hash = uin % people_db_size;
 	while(people_db[hash] != NULL) {
@@ -123,15 +150,27 @@ void people_add(int uin, unsigned char *nick, unsigned char *name, unsigned char
 		count++;
 		if(count == people_db_size) {
 			/* Database full */
-			assert(0);
+			/* grow database */
+			people_db_expand();
+			/* Now insert the person. We now knows that
+			 * he/she/it doesn't already exist in the db
+			 * and that there is room.
+			 */
+			hash = uin % people_db_size;
+			while(people_db[hash] != NULL) hash++;
+			people_db[hash] = p;
+			return;
 		}
 	}
-	/* Room for me */
+	/* There was room for this person */
 	people_db[hash] = p;
 	return;
-
 }
 
+
+/* Returns a pointer to the person with the given uin
+ * or NULL if no such person was found.
+ */
 struct people *people_lookup(int uin)
 {
 	int hash, count=0;
